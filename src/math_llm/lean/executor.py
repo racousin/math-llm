@@ -50,6 +50,10 @@ class LeanAction:
                 # Use the whole output as code (after cleaning)
                 code = cls._clean_code(output)
 
+        # If model output a full theorem/lemma declaration, extract only the proof tactics
+        # This prevents duplicate definition errors when combining with the original statement
+        code = cls._extract_tactics_from_theorem(code)
+
         # Determine action type
         action_type = "proof"
         if code.strip().startswith("def ") or code.strip().startswith("definition "):
@@ -60,6 +64,35 @@ class LeanAction:
             action_type = "tactic"
 
         return cls(code=code, action_type=action_type)
+
+    @staticmethod
+    def _extract_tactics_from_theorem(code: str) -> str:
+        """
+        Extract only the proof tactics if code contains a full theorem declaration.
+
+        This handles cases where the LLM outputs:
+          theorem foo : T := by exact bar
+        Instead of just:
+          exact bar
+        """
+        stripped = code.strip()
+
+        # Check if it starts with a declaration keyword
+        if stripped.startswith(("theorem ", "lemma ", "example ")):
+            # Try to extract the proof part after ':= by'
+            match = re.search(r":=\s*by\s+(.*)", code, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+
+            # Try ':= ' without 'by' (term-mode proof)
+            match = re.search(r":=\s+(.+)", code, re.DOTALL)
+            if match:
+                proof = match.group(1).strip()
+                # Don't return if it's just 'by' without tactics
+                if proof and proof != "by":
+                    return proof
+
+        return code
 
     @staticmethod
     def _clean_code(text: str) -> str:

@@ -3,7 +3,7 @@
 
 # Model configuration
 model:
-  name: "Qwen/Qwen2.5-0.5B-Instruct"  # Small model for testing
+  name: "Qwen/Qwen2.5-7B-Instruct"  # Small model for testing
   max_length: 2048
   device: "auto"
   torch_dtype: "bfloat16"
@@ -14,9 +14,9 @@ model:
 # Lean server configuration
 lean:
   lean_path: "lake"
-  project_path: null  # Will create temp project
-  timeout: 60
-  memory_limit: 4096
+  project_path: null
+  timeout: 120
+  memory_limit: 8192
   max_retries: 3
 
 # Agent configuration
@@ -88,3 +88,5 @@ eval:
 # Global settings
 seed: 42
 debug: false
+
+

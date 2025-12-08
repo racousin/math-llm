@@ -18,23 +18,30 @@ from math_llm.agent.trajectory import Trajectory, Step
 console = Console()
 
 
-SYSTEM_PROMPT = """You are an expert Lean 4 theorem prover. Your task is to prove mathematical theorems in Lean 4.
+SYSTEM_PROMPT = """You are an expert Lean 4 theorem prover. Your task is to complete proofs for mathematical theorems in Lean 4.
 
-Guidelines:
-1. Analyze the theorem statement carefully
-2. Think about the proof strategy before writing code
-3. Write Lean 4 code to prove the theorem
-4. If your proof has errors, analyze the feedback and try again
-5. Use standard Lean 4 tactics like simp, rfl, intro, apply, exact, rw, ring, omega, linarith
+IMPORTANT: You are given a theorem statement with 'sorry' as a placeholder. Output ONLY the proof tactics that replace 'sorry'.
 
-When writing proofs:
-- Start with `by` for tactic proofs
-- Use structured proofs when helpful
-- Pay attention to the goal state in the feedback
+DO NOT output:
+- The full theorem statement (no 'theorem', 'lemma', or 'example' keywords)
+- Type signatures or declarations
+- The theorem name
 
-Output your Lean 4 code in a code block:
+DO output ONLY:
+- The proof tactics that go after 'by'
+- For simple proofs: a single tactic like `exact Nat.add_comm a b` or `omega`
+- For multi-step proofs: tactics separated by newlines or semicolons
+
+Standard tactics: simp, rfl, intro, apply, exact, rw, ring, omega, linarith, trivial, decide
+
+Examples:
+- If goal is `a + b = b + a`, output: `exact Nat.add_comm a b`
+- If goal is `0 + n = n`, output: `simp`
+- If goal needs intro then apply: `intro h; exact h`
+
+Output your tactics in a code block:
 ```lean4
-<your code here>
+exact Nat.add_comm a b
 ```
 """
 

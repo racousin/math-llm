@@ -4,7 +4,7 @@
 
 # Model configuration - tiny model for fast testing
 model:
-  name: "Qwen/Qwen2.5-0.5B-Instruct"  # Smallest available
+  name: "Qwen/Qwen2.5-7B-Instruct"  # Smallest available
   max_length: 1024
   device: "mps"  # Apple Silicon - use "cuda" for NVIDIA, "cpu" for CPU
   torch_dtype: "float16"  # float16 for MPS compatibility
@@ -85,3 +85,5 @@ eval:
 # Global
 seed: 42
 debug: true
+
+
