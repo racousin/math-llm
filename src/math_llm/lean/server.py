@@ -17,6 +17,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+
+def _get_lean_env() -> dict:
+    """Get environment with elan PATH included."""
+    env = os.environ.copy()
+    elan_bin = Path.home() / ".elan" / "bin"
+    if elan_bin.exists():
+        env["PATH"] = f"{elan_bin}:{env.get('PATH', '')}"
+    return env
+
 import pexpect
 from rich.console import Console
 
@@ -146,14 +155,10 @@ class LeanServer:
 import Lake
 open Lake DSL
 
-package «math_llm_workspace» where
-  leanOptions := #[
-    ⟨`autoImplicit, false⟩
-  ]
+package «math_llm_workspace»
 
 @[default_target]
-lean_lib «MathLLM» where
-  -- Add library configuration here
+lean_lib «MathLLM»
 """)
 
         # Create lean-toolchain
@@ -219,6 +224,7 @@ lean_lib «MathLLM» where
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
+                env=_get_lean_env(),
             )
 
             return self._parse_output(result.stdout, result.stderr, result.returncode)
@@ -249,13 +255,14 @@ lean_lib «MathLLM» where
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
+                env=_get_lean_env(),
             )
             return self._parse_output(result.stdout, result.stderr, result.returncode)
         except FileNotFoundError:
             return LeanResult(
                 status=LeanResultStatus.ERROR,
                 output="",
-                errors=["Lean not found. Please install Lean 4 (elan install leanprover/lean4:stable)"],
+                errors=["Lean not found. Install: curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh && elan default leanprover/lean4:stable"],
             )
         except subprocess.TimeoutExpired:
             return LeanResult(

@@ -24,7 +24,6 @@ def main():
     parser.add_argument("--config", "-c", type=str, default="configs/default.yaml")
     parser.add_argument("--output", "-o", type=str, default=None)
     parser.add_argument("--debug", action="store_true", help="Use dummy data for testing")
-    parser.add_argument("--no-lean", action="store_true", help="Skip Lean execution (mock mode)")
     args = parser.parse_args()
 
     from math_llm.config import load_config
@@ -32,7 +31,6 @@ def main():
     from math_llm.models.llm import LLMWrapper
     from math_llm.lean import LeanExecutor, LeanServer
     from math_llm.agent import LeanAgent
-    from math_llm.agent.agent import MockLLMWrapper
     from math_llm.training import RLTrainer
 
     # Load config
@@ -53,31 +51,23 @@ def main():
     console.print(f"[green]Dataset: {len(train_dataset)} train, {len(val_dataset)} val[/green]")
 
     # Setup model
-    if args.debug or args.no_lean:
-        console.print("[yellow]Using mock LLM for testing[/yellow]")
-        model = MockLLMWrapper()
-    else:
-        console.print(f"[blue]Loading model: {config.model.name}[/blue]")
-        model = LLMWrapper(
-            model_name=config.model.name,
-            device=config.model.device,
-            torch_dtype=config.model.torch_dtype,
-            load_in_4bit=config.model.load_in_4bit,
-            max_length=config.model.max_length,
-        )
-        model.load()
+    console.print(f"[blue]Loading model: {config.model.name}[/blue]")
+    model = LLMWrapper(
+        model_name=config.model.name,
+        device=config.model.device,
+        torch_dtype=config.model.torch_dtype,
+        load_in_4bit=config.model.load_in_4bit,
+        max_length=config.model.max_length,
+    )
+    model.load()
 
     # Setup Lean executor
-    if args.no_lean:
-        console.print("[yellow]Lean execution disabled (mock mode)[/yellow]")
-        executor = None
-    else:
-        lean_server = LeanServer(
-            lean_path=config.lean.lean_path,
-            timeout=config.lean.timeout,
-        )
-        executor = LeanExecutor(server=lean_server)
-        executor.start()
+    lean_server = LeanServer(
+        lean_path=config.lean.lean_path,
+        timeout=config.lean.timeout,
+    )
+    executor = LeanExecutor(server=lean_server)
+    executor.start()
 
     try:
         # Create agent
@@ -87,41 +77,36 @@ def main():
             config=config.agent,
         )
 
-        if executor:
-            # Collect some trajectories
-            console.print("\n[blue]Collecting trajectories...[/blue]")
-            trajectories = []
-            for i, problem in enumerate(train_dataset.problems[:5]):
-                console.print(f"\nProblem {i+1}/5: {problem.id}")
-                try:
-                    trajectory = agent.solve(problem)
-                    trajectories.append(trajectory)
-                    console.print(
-                        f"  Result: {'✓ Solved' if trajectory.success else '✗ Failed'} "
-                        f"in {trajectory.num_steps} steps"
-                    )
-                except Exception as e:
-                    console.print(f"  [red]Error: {e}[/red]")
+        # Collect some trajectories
+        console.print("\n[blue]Collecting trajectories...[/blue]")
+        trajectories = []
+        for i, problem in enumerate(train_dataset.problems[:5]):
+            console.print(f"\nProblem {i+1}/5: {problem.id}")
+            try:
+                trajectory = agent.solve(problem)
+                trajectories.append(trajectory)
+                console.print(
+                    f"  Result: {'✓ Solved' if trajectory.success else '✗ Failed'} "
+                    f"in {trajectory.num_steps} steps"
+                )
+            except Exception as e:
+                console.print(f"  [red]Error: {e}[/red]")
 
-            # Print summary
-            success_rate = sum(1 for t in trajectories if t.success) / len(trajectories)
-            console.print(f"\n[blue]Summary: {success_rate:.1%} success rate[/blue]")
+        # Print summary
+        success_rate = sum(1 for t in trajectories if t.success) / len(trajectories)
+        console.print(f"\n[blue]Summary: {success_rate:.1%} success rate[/blue]")
 
-            # Save trajectories
-            output_dir = Path(config.training.output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
+        # Save trajectories
+        output_dir = Path(config.training.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-            for i, traj in enumerate(trajectories):
-                traj.save(output_dir / f"trajectory_{i}.json")
+        for i, traj in enumerate(trajectories):
+            traj.save(output_dir / f"trajectory_{i}.json")
 
-            console.print(f"[green]Trajectories saved to {output_dir}[/green]")
-
-        else:
-            console.print("[yellow]Skipping trajectory collection (no Lean)[/yellow]")
+        console.print(f"[green]Trajectories saved to {output_dir}[/green]")
 
     finally:
-        if executor:
-            executor.stop()
+        executor.stop()
 
     console.print("\n[green]Training script complete![/green]")
 

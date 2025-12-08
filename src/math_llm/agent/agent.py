@@ -240,28 +240,3 @@ class LeanAgent:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.stop()
-
-
-class MockLLMWrapper:
-    """Mock LLM wrapper for testing without a real model."""
-
-    def __init__(self):
-        self.responses = [
-            "```lean4\nrfl\n```",
-            "```lean4\nsimp\n```",
-            "```lean4\nring\n```",
-            "```lean4\nomega\n```",
-        ]
-        self.call_count = 0
-
-    def generate(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
-        top_p: float = 0.95,
-    ) -> str:
-        """Generate a mock response."""
-        response = self.responses[self.call_count % len(self.responses)]
-        self.call_count += 1
-        return response

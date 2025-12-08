@@ -3,38 +3,6 @@
 
 .PHONY: help install test clean train train-dummy eval eval-all download lint format
 
-# Default target
-help:
-	@echo "Math-LLM - LLM Agent for Lean 4 Theorem Proving"
-	@echo ""
-	@echo "Setup:"
-	@echo "  make install        Install dependencies with Poetry"
-	@echo "  make download       Download all Lean 4 datasets"
-	@echo "  make download-quick Download minimal dataset (minif2f)"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test           Run quick installation test"
-	@echo "  make test-unit      Run unit tests with pytest"
-	@echo ""
-	@echo "Training:"
-	@echo "  make train-dummy    Train with dummy data (no GPU needed)"
-	@echo "  make train          Train with default config"
-	@echo "  make train-dgx      Train with DGX Spark config"
-	@echo ""
-	@echo "Evaluation:"
-	@echo "  make eval-dummy     Evaluate with dummy data"
-	@echo "  make eval           Evaluate on minif2f-lean4"
-	@echo "  make eval-all       Evaluate on all benchmarks"
-	@echo "  make eval-fimo      Evaluate on FIMO (IMO problems)"
-	@echo "  make eval-putnam    Evaluate on PutnamBench"
-	@echo ""
-	@echo "Development:"
-	@echo "  make lint           Run linter (ruff)"
-	@echo "  make format         Format code (black)"
-	@echo "  make clean          Clean cache and outputs"
-	@echo ""
-	@echo "Data:"
-	@echo "  make list-data      List available datasets"
 
 # =============================================================================
 # Setup
@@ -70,12 +38,11 @@ test-all: test test-unit
 # Training
 # =============================================================================
 
-# Dummy training (no real model, no GPU)
+# Dummy training (with real Lean, small dataset)
 train-dummy:
 	poetry run python scripts/train.py \
 		--config configs/dummy_test.yaml \
-		--debug \
-		--no-lean
+		--debug
 
 # Training with real model on dummy data
 train-dummy-model:
@@ -140,30 +107,31 @@ with LeanExecutor() as executor: \
 
 # Evaluate on all benchmarks (recommended)
 eval-all:
-	poetry run python scripts/eval_all.py --mock --output $(EVAL_OUTPUT)
-
-# Evaluate on all with real model
-eval-all-model:
 	poetry run python scripts/eval_all.py --output $(EVAL_OUTPUT)
+
+# Evaluate on all with specific config
+eval-all-config:
+	@test -n "$(CONFIG)" || (echo "Usage: make eval-all-config CONFIG=path" && exit 1)
+	poetry run python scripts/eval_all.py --config $(CONFIG) --output $(EVAL_OUTPUT)
 
 # Evaluate on all with checkpoint
 eval-all-checkpoint:
 	@test -n "$(CHECKPOINT)" || (echo "Usage: make eval-all-checkpoint CHECKPOINT=path" && exit 1)
 	poetry run python scripts/eval_all.py --checkpoint $(CHECKPOINT) --output $(EVAL_OUTPUT)
 
-# Individual benchmark evaluations (with mock model for quick testing)
+# Individual benchmark evaluations (with real model)
 
 eval-minif2f:
 	@mkdir -p $(EVAL_OUTPUT)
 	@echo "Evaluating on MiniF2F-Lean4..."
 	poetry run python -c "\
 from math_llm.data import load_sources, LeanDataset; \
-from math_llm.agent.agent import MockLLMWrapper; \
+from math_llm.models import load_model; \
 from math_llm.lean import LeanExecutor; \
 from math_llm.agent import LeanAgent, Evaluator; \
 from math_llm.config import load_config; \
 config = load_config('configs/default.yaml'); \
-model = MockLLMWrapper(); \
+model = load_model(config.model.name, device=config.model.device); \
 problems = load_sources(['minif2f-lean4']); \
 dataset = LeanDataset(problems); \
 print(f'Evaluating on {len(dataset)} MiniF2F problems...'); \
@@ -178,12 +146,12 @@ eval-fimo:
 	@echo "Evaluating on FIMO (IMO problems)..."
 	poetry run python -c "\
 from math_llm.data import load_sources, LeanDataset; \
-from math_llm.agent.agent import MockLLMWrapper; \
+from math_llm.models import load_model; \
 from math_llm.lean import LeanExecutor; \
 from math_llm.agent import LeanAgent, Evaluator; \
 from math_llm.config import load_config; \
 config = load_config('configs/default.yaml'); \
-model = MockLLMWrapper(); \
+model = load_model(config.model.name, device=config.model.device); \
 problems = load_sources(['fimo']); \
 dataset = LeanDataset(problems); \
 print(f'Evaluating on {len(dataset)} FIMO problems...'); \
@@ -198,12 +166,12 @@ eval-putnam:
 	@echo "Evaluating on PutnamBench..."
 	poetry run python -c "\
 from math_llm.data import load_sources, LeanDataset; \
-from math_llm.agent.agent import MockLLMWrapper; \
+from math_llm.models import load_model; \
 from math_llm.lean import LeanExecutor; \
 from math_llm.agent import LeanAgent, Evaluator; \
 from math_llm.config import load_config; \
 config = load_config('configs/default.yaml'); \
-model = MockLLMWrapper(); \
+model = load_model(config.model.name, device=config.model.device); \
 problems = load_sources(['putnambench']); \
 dataset = LeanDataset(problems); \
 print(f'Evaluating on {len(dataset)} Putnam problems...'); \
@@ -218,12 +186,12 @@ eval-proofnet:
 	@echo "Evaluating on ProofNet..."
 	poetry run python -c "\
 from math_llm.data import load_sources, LeanDataset; \
-from math_llm.agent.agent import MockLLMWrapper; \
+from math_llm.models import load_model; \
 from math_llm.lean import LeanExecutor; \
 from math_llm.agent import LeanAgent, Evaluator; \
 from math_llm.config import load_config; \
 config = load_config('configs/default.yaml'); \
-model = MockLLMWrapper(); \
+model = load_model(config.model.name, device=config.model.device); \
 problems = load_sources(['proofnet']); \
 dataset = LeanDataset(problems); \
 print(f'Evaluating on {len(dataset)} ProofNet problems...'); \

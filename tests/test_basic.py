@@ -257,26 +257,5 @@ class TestRewards:
         assert reward <= 0.0  # Failure should give non-positive reward
 
 
-class TestMockAgent:
-    """Test mock agent."""
-
-    def test_mock_llm_wrapper(self):
-        from math_llm.agent.agent import MockLLMWrapper
-
-        mock = MockLLMWrapper()
-        response = mock.generate("test prompt")
-
-        assert "```lean4" in response or "rfl" in response.lower()
-
-    def test_mock_llm_multiple_calls(self):
-        from math_llm.agent.agent import MockLLMWrapper
-
-        mock = MockLLMWrapper()
-        responses = [mock.generate(f"prompt {i}") for i in range(5)]
-
-        # Should cycle through different responses
-        assert len(set(responses)) > 1
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -6,7 +6,6 @@ Usage:
     python scripts/eval_all.py
     python scripts/eval_all.py --checkpoint outputs/checkpoint-1
     python scripts/eval_all.py --benchmarks minif2f-lean4 fimo
-    python scripts/eval_all.py --mock  # Use mock model for testing
 """
 
 import argparse
@@ -88,10 +87,10 @@ def main():
                         help="Max samples per benchmark")
     parser.add_argument("--output", "-o", type=str, default="outputs/eval",
                         help="Output directory")
-    parser.add_argument("--mock", action="store_true", help="Use mock model for testing")
     args = parser.parse_args()
 
     from math_llm.config import load_config
+    from math_llm.models import load_model
     from math_llm.lean import LeanExecutor
 
     # Load config
@@ -101,22 +100,16 @@ def main():
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load model
-    if args.mock:
-        from math_llm.agent.agent import MockLLMWrapper
-        console.print("[yellow]Using mock model for testing[/yellow]")
-        model = MockLLMWrapper()
-    else:
-        from math_llm.models import load_model
-        model_path = args.checkpoint or config.model.name
-        console.print(f"[blue]Loading model: {model_path}[/blue]")
-        model = load_model(
-            model_name=model_path,
-            device=config.model.device,
-            torch_dtype=config.model.torch_dtype,
-        )
+    # Load model (always real LLM)
+    model_path = args.checkpoint or config.model.name
+    console.print(f"[blue]Loading model: {model_path}[/blue]")
+    model = load_model(
+        model_name=model_path,
+        device=config.model.device,
+        torch_dtype=config.model.torch_dtype,
+    )
 
-    # Run evaluations
+    # Run evaluations (always real Lean)
     all_results = []
 
     with LeanExecutor() as executor:

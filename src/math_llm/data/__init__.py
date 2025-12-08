@@ -12,7 +12,7 @@ Available Lean 4 datasets:
 """
 
 from math_llm.data.datasets import LeanDataset, LeanProblem
-from math_llm.data.loaders import create_dataloader, collate_lean_batch, load_dataset, create_dummy_dataset
+from math_llm.data.loaders import create_dataloader, collate_lean_batch, load_dataset
 from math_llm.data.sources import (
     # Base classes
     DataSource,
