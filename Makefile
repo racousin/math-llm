@@ -11,6 +11,13 @@
 install:
 	poetry install
 
+setup-mathlib:
+	@echo "Setting up Mathlib (downloads ~2GB, takes 10-20 min)..."
+	./scripts/setup_mathlib.sh
+	@echo ""
+	@echo "Add to your shell config:"
+	@echo "  export MATHLIB_PROJECT_PATH=$$HOME/.math-llm/mathlib-project"
+
 download:
 	poetry run python scripts/download_data.py \
 		--sources leandojo minif2f-lean4 fimo putnambench proofnet formal-conjectures \
@@ -282,10 +289,10 @@ quickstart: install test
 	@echo ""
 	@echo "Installation successful!"
 	@echo "Next steps:"
+	@echo "  make setup-mathlib   # Setup Mathlib (required for benchmarks)"
 	@echo "  make download-quick  # Download minimal dataset"
-	@echo "  make train-dummy     # Test training loop"
 	@echo "  make eval-dummy      # Test evaluation"
 
 # Full setup
-setup: install download test
+setup: install setup-mathlib download test
 	@echo "Full setup complete!"

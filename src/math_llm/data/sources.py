@@ -28,6 +28,26 @@ from math_llm.data.datasets import LeanProblem
 console = Console()
 
 
+def normalize_lean4_syntax(statement: str) -> str:
+    """
+    Normalize Lean syntax for Mathlib 4 compatibility.
+
+    Fixes common syntax differences between dataset formats and Mathlib 4:
+    - Converts `∑ k in S` to `∑ k ∈ S` (BigOperators notation)
+    - Converts `∏ k in S` to `∏ k ∈ S`
+    """
+    import re
+
+    # Replace "∑ var in " with "∑ var ∈ " (sum notation)
+    # Pattern: ∑ followed by identifier, then " in "
+    statement = re.sub(r'(∑\s*\w+)\s+in\s+', r'\1 ∈ ', statement)
+
+    # Same for product notation
+    statement = re.sub(r'(∏\s*\w+)\s+in\s+', r'\1 ∈ ', statement)
+
+    return statement
+
+
 class DataSource(ABC):
     """Abstract base class for data sources."""
 
@@ -189,6 +209,9 @@ class MiniF2FLean4Source(HuggingFaceSource):
         for item in all_items:
             statement = item.get("formal_statement", item.get("statement", ""))
             name = item.get("name", item.get("problem_name", ""))
+
+            # Normalize syntax for Mathlib 4 compatibility
+            statement = normalize_lean4_syntax(statement)
 
             # Get informal statement
             informal = item.get("informal_statement", item.get("informal_stmt", ""))

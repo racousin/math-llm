@@ -17,6 +17,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from math_llm.config import MATHLIB_VERSION, LEAN_TOOLCHAIN
+
 
 def _get_lean_env() -> dict:
     """Get environment with elan PATH included."""
@@ -26,10 +28,14 @@ def _get_lean_env() -> dict:
         env["PATH"] = f"{elan_bin}:{env.get('PATH', '')}"
     return env
 
-import pexpect
 from rich.console import Console
 
 console = Console()
+
+# Lean 4 imports for mathematical proofs
+DEFAULT_IMPORTS = """import Mathlib
+import Aesop
+"""
 
 
 class LeanResultStatus(Enum):
@@ -102,40 +108,34 @@ class LeanServer:
     """
     Interface to Lean 4 for executing and verifying proofs.
 
-    Supports two modes:
-    1. File-based execution (default): Write to temp file and run lake
-    2. REPL mode: Interactive session with Lean REPL (faster for iteration)
+    Requires a Mathlib project. Set project_path or MATHLIB_PROJECT_PATH env var.
+    To setup: lake exe cache get && lake build
     """
 
     def __init__(
         self,
         lean_path: str = "lake",
         project_path: Optional[str] = None,
-        timeout: int = 60,
+        timeout: int = 300,  # 5 minutes - Mathlib imports take time
         memory_limit: int = 4096,
-        use_repl: bool = False,
     ):
         self.lean_path = lean_path
-        self.project_path = Path(project_path) if project_path else None
         self.timeout = timeout
         self.memory_limit = memory_limit
-        self.use_repl = use_repl
 
-        self._repl_process: Optional[pexpect.spawn] = None
+        # Get project path from arg or env
+        self.project_path = Path(
+            project_path or os.environ.get("MATHLIB_PROJECT_PATH", "")
+        ) if (project_path or os.environ.get("MATHLIB_PROJECT_PATH")) else None
+
         self._temp_dir: Optional[tempfile.TemporaryDirectory] = None
 
     def start(self) -> None:
-        """Start the Lean server/REPL."""
-        if self.use_repl:
-            self._start_repl()
-        else:
-            self._ensure_project()
+        """Start the Lean server."""
+        self._ensure_project()
 
     def stop(self) -> None:
-        """Stop the Lean server/REPL."""
-        if self._repl_process:
-            self._repl_process.close()
-            self._repl_process = None
+        """Stop the Lean server."""
         if self._temp_dir:
             self._temp_dir.cleanup()
             self._temp_dir = None
@@ -149,21 +149,25 @@ class LeanServer:
         self._temp_dir = tempfile.TemporaryDirectory(prefix="math_llm_lean_")
         self.project_path = Path(self._temp_dir.name)
 
-        # Create lakefile.lean
+        # Create lakefile.lean with pinned Mathlib version
+        # Note: Lake API changed - leanOptions moved out of package block in newer versions
         lakefile = self.project_path / "lakefile.lean"
-        lakefile.write_text("""
-import Lake
+        lakefile.write_text(f"""import Lake
 open Lake DSL
 
 package «math_llm_workspace»
 
+require mathlib from git
+  "https://github.com/leanprover-community/mathlib4" @ "{MATHLIB_VERSION}"
+
 @[default_target]
-lean_lib «MathLLM»
+lean_lib «MathLLM» where
+  globs := #[.submodules `MathLLM]
 """)
 
-        # Create lean-toolchain
+        # Create lean-toolchain (must match Mathlib version)
         toolchain = self.project_path / "lean-toolchain"
-        toolchain.write_text("leanprover/lean4:v4.3.0\n")
+        toolchain.write_text(f"{LEAN_TOOLCHAIN}\n")
 
         # Create src directory
         (self.project_path / "MathLLM").mkdir(exist_ok=True)
@@ -171,13 +175,25 @@ lean_lib «MathLLM»
 
         console.print(f"[blue]Created temporary Lean project at {self.project_path}[/blue]")
 
-    def _start_repl(self) -> None:
-        """Start Lean REPL process."""
-        self._ensure_project()
-        # Note: Lean 4 REPL is still experimental
-        # For now, we'll use file-based execution
-        console.print("[yellow]REPL mode not fully implemented, using file mode[/yellow]")
-        self.use_repl = False
+        # Download Mathlib cache - critical for performance!
+        console.print("[yellow]Downloading Mathlib cache (this may take a few minutes the first time)...[/yellow]")
+        try:
+            cache_result = subprocess.run(
+                [self.lean_path, "exe", "cache", "get"],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                timeout=600,  # 10 min timeout for cache download
+                env=_get_lean_env(),
+            )
+            if cache_result.returncode == 0:
+                console.print("[green]Mathlib cache downloaded successfully[/green]")
+            else:
+                console.print(f"[yellow]Warning: Cache download may have issues: {cache_result.stderr[:200]}[/yellow]")
+        except subprocess.TimeoutExpired:
+            console.print("[yellow]Warning: Cache download timed out - Lean execution may be slow[/yellow]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not download cache: {e}[/yellow]")
 
     def execute(self, code: str, context: Optional[str] = None) -> LeanResult:
         """
@@ -279,7 +295,7 @@ lean_lib «MathLLM»
 
         # Default imports for common mathematical proofs
         if not code.strip().startswith("import"):
-            parts.append("-- Auto-generated imports")
+            parts.append(DEFAULT_IMPORTS)
 
         if context:
             parts.append(context)
@@ -287,6 +303,51 @@ lean_lib «MathLLM»
         parts.append(code)
 
         return "\n\n".join(parts)
+
+    def suggest_tactics(self, statement: str, current_proof: str = "") -> list[str]:
+        """
+        Use Lean's suggestion tactics to find applicable lemmas/tactics.
+
+        Uses exact?, apply?, simp? to discover what lemmas could work.
+        """
+        suggestions = []
+
+        # Build code with suggestion tactics
+        if ":= by" in statement:
+            base_code = statement.replace("sorry", current_proof + "\n  exact?" if current_proof else "exact?")
+        else:
+            base_code = f"{statement} := by\n  {current_proof}\n  exact?" if current_proof else f"{statement} := by exact?"
+
+        # Try exact?
+        result = self.execute(base_code)
+        exact_suggestions = self._parse_suggestions(result.output, "exact")
+        suggestions.extend(exact_suggestions)
+
+        # Try apply?
+        apply_code = base_code.replace("exact?", "apply?")
+        result = self.execute(apply_code)
+        apply_suggestions = self._parse_suggestions(result.output, "apply")
+        suggestions.extend(apply_suggestions)
+
+        return suggestions[:10]  # Limit to top 10
+
+    def _parse_suggestions(self, output: str, tactic_type: str) -> list[str]:
+        """Parse suggestion output from Lean."""
+        suggestions = []
+
+        # Look for "Try this:" patterns
+        try_pattern = r"Try this:\s*(.+?)(?:\n|$)"
+        for match in re.finditer(try_pattern, output):
+            suggestion = match.group(1).strip()
+            if suggestion:
+                suggestions.append(suggestion)
+
+        # Look for suggestion comments
+        suggestion_pattern = rf"{tactic_type}\s+(\S+)"
+        for match in re.finditer(suggestion_pattern, output):
+            suggestions.append(f"{tactic_type} {match.group(1)}")
+
+        return suggestions
 
     def _parse_output(self, stdout: str, stderr: str, return_code: int) -> LeanResult:
         """Parse Lean output into structured result."""
@@ -340,18 +401,31 @@ lean_lib «MathLLM»
         Check if a proof is valid for a given statement.
 
         Args:
-            statement: The theorem statement
-            proof: The proposed proof
+            statement: The theorem statement (may end with := sorry or := by sorry)
+            proof: The proposed proof tactic(s)
 
         Returns:
             LeanResult indicating if proof is valid
         """
-        # Combine statement and proof
+        proof = proof.strip()
+
+        # Normalize: remove leading "by" if present (we'll add it)
+        if proof.startswith("by ") or proof.startswith("by\n"):
+            proof = proof[2:].strip()
+
+        # Build the code based on statement format
         if ":= by" in statement:
-            # Replace sorry with actual proof
-            code = statement.replace("sorry", proof.strip())
+            # Statement has "by" - just replace sorry with tactic
+            code = statement.replace("sorry", proof)
+        elif ":= sorry" in statement:
+            # Statement has ":= sorry" - replace with ":= by tactic"
+            code = statement.replace(":= sorry", f":= by\n  {proof}")
+        elif statement.rstrip().endswith("sorry"):
+            # Ends with sorry (no :=) - replace sorry
+            code = statement.rsplit("sorry", 1)[0] + f"by\n  {proof}"
         else:
-            code = f"{statement}\n{proof}"
+            # No sorry - append proof
+            code = f"{statement} := by\n  {proof}"
 
         return self.execute(code)
 

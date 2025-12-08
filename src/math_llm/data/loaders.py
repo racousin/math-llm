@@ -88,45 +88,46 @@ def create_dummy_dataset(num_problems: int = 10) -> LeanDataset:
     """Create a dummy dataset for testing."""
     problems = []
 
+    # Use unique names to avoid conflicts with Mathlib
     dummy_theorems = [
         {
-            "statement": "theorem add_comm (a b : Nat) : a + b = b + a := by\n  sorry",
+            "statement": "theorem test_add_comm (a b : Nat) : a + b = b + a := by\n  sorry",
             "description": "Addition is commutative",
         },
         {
-            "statement": "theorem add_zero (a : Nat) : a + 0 = a := by\n  sorry",
+            "statement": "theorem test_add_zero (a : Nat) : a + 0 = a := by\n  sorry",
             "description": "Adding zero is identity",
         },
         {
-            "statement": "theorem zero_add (a : Nat) : 0 + a = a := by\n  sorry",
+            "statement": "theorem test_zero_add (a : Nat) : 0 + a = a := by\n  sorry",
             "description": "Zero plus anything is identity",
         },
         {
-            "statement": "theorem mul_comm (a b : Nat) : a * b = b * a := by\n  sorry",
+            "statement": "theorem test_mul_comm (a b : Nat) : a * b = b * a := by\n  sorry",
             "description": "Multiplication is commutative",
         },
         {
-            "statement": "theorem mul_one (a : Nat) : a * 1 = a := by\n  sorry",
+            "statement": "theorem test_mul_one (a : Nat) : a * 1 = a := by\n  sorry",
             "description": "Multiplying by one is identity",
         },
         {
-            "statement": "theorem add_assoc (a b c : Nat) : (a + b) + c = a + (b + c) := by\n  sorry",
+            "statement": "theorem test_add_assoc (a b c : Nat) : (a + b) + c = a + (b + c) := by\n  sorry",
             "description": "Addition is associative",
         },
         {
-            "statement": "theorem mul_assoc (a b c : Nat) : (a * b) * c = a * (b * c) := by\n  sorry",
+            "statement": "theorem test_mul_assoc (a b c : Nat) : (a * b) * c = a * (b * c) := by\n  sorry",
             "description": "Multiplication is associative",
         },
         {
-            "statement": "theorem add_succ (a b : Nat) : a + Nat.succ b = Nat.succ (a + b) := by\n  sorry",
+            "statement": "theorem test_add_succ (a b : Nat) : a + Nat.succ b = Nat.succ (a + b) := by\n  sorry",
             "description": "Adding successor",
         },
         {
-            "statement": "theorem succ_add (a b : Nat) : Nat.succ a + b = Nat.succ (a + b) := by\n  sorry",
+            "statement": "theorem test_succ_add (a b : Nat) : Nat.succ a + b = Nat.succ (a + b) := by\n  sorry",
             "description": "Successor of first argument",
         },
         {
-            "statement": "theorem mul_zero (a : Nat) : a * 0 = 0 := by\n  sorry",
+            "statement": "theorem test_mul_zero (a : Nat) : a * 0 = 0 := by\n  sorry",
             "description": "Anything times zero is zero",
         },
     ]

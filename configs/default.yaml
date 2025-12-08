@@ -3,7 +3,8 @@
 
 # Model configuration
 model:
-  name: "Qwen/Qwen2.5-7B-Instruct"  # Small model for testing
+  # name: "Qwen/Qwen2.5-7B-Instruct"  # Small model for testing
+  name: "Qwen/Qwen2.5-7B-Instruct"  # Smallest available
   max_length: 2048
   device: "auto"
   torch_dtype: "bfloat16"

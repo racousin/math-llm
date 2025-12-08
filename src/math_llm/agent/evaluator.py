@@ -46,9 +46,12 @@ class EvaluationResult:
     by_source: dict = field(default_factory=dict)
     by_difficulty: dict = field(default_factory=dict)
 
+    # Tool usage metrics (for benchmarking tools)
+    tool_metrics: Optional[dict] = None
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
-        return {
+        result = {
             "num_problems": self.num_problems,
             "num_solved": self.num_solved,
             "success_rate": self.success_rate,
@@ -62,6 +65,9 @@ class EvaluationResult:
             "by_source": self.by_source,
             "by_difficulty": self.by_difficulty,
         }
+        if self.tool_metrics:
+            result["tool_metrics"] = self.tool_metrics
+        return result
 
     def save(self, path: str, include_trajectories: bool = True) -> None:
         """Save evaluation results to file."""
@@ -110,6 +116,26 @@ class EvaluationResult:
                 )
 
             console.print(source_table)
+
+        # Print tool metrics if available
+        if self.tool_metrics and self.tool_metrics.get("by_tool"):
+            tool_table = Table(title="Tool Usage Metrics")
+            tool_table.add_column("Tool", style="cyan")
+            tool_table.add_column("Calls", style="white")
+            tool_table.add_column("Success", style="green")
+            tool_table.add_column("Rate", style="yellow")
+            tool_table.add_column("Avg Time", style="blue")
+
+            for tool_name, stats in self.tool_metrics["by_tool"].items():
+                tool_table.add_row(
+                    tool_name,
+                    str(stats["calls"]),
+                    str(stats["success"]),
+                    f"{stats['success_rate']:.1%}",
+                    f"{stats['avg_time']:.3f}s",
+                )
+
+            console.print(tool_table)
 
 
 class Evaluator:

@@ -10,9 +10,23 @@ from omegaconf import OmegaConf, DictConfig
 from pydantic import BaseModel
 
 
+# =============================================================================
+# LEAN/MATHLIB VERSION CONFIGURATION
+# =============================================================================
+# IMPORTANT: These versions are critical for LLM training and inference.
+# The Lean version affects syntax, tactics, and theorem availability.
+# Changing versions may require retraining the model.
+#
+# Version History:
+#   v4.25.2 - Stable release, used for initial training
+# =============================================================================
+MATHLIB_VERSION = "v4.25.2"
+LEAN_TOOLCHAIN = "leanprover/lean4:v4.25.2"  # Must match Mathlib version
+
+
 class ModelConfig(BaseModel):
     """Model configuration."""
-    name: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    name: str = "Qwen/Qwen2.5-7B-Instruct"
     max_length: int = 2048
     device: str = "auto"
     torch_dtype: str = "bfloat16"
@@ -25,14 +39,18 @@ class LeanConfig(BaseModel):
     """Lean server configuration."""
     lean_path: str = "lake"
     project_path: Optional[str] = None
-    timeout: int = 60
+    timeout: int = 300  # 5 minutes - Mathlib imports take time
     memory_limit: int = 4096  # MB
     max_retries: int = 3
+    # Version info (read-only, for reference)
+    mathlib_version: str = MATHLIB_VERSION
+    lean_toolchain: str = LEAN_TOOLCHAIN
 
 
 class AgentConfig(BaseModel):
     """Agent configuration."""
     max_steps: int = 10
+    max_new_tokens: int = 128
     temperature: float = 0.7
     top_p: float = 0.95
     stop_on_error: bool = False

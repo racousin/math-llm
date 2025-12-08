@@ -28,7 +28,7 @@ class LLMWrapper:
 
     def __init__(
         self,
-        model_name: str = "Qwen/Qwen2.5-0.5B-Instruct",
+        model_name: str = "Qwen/Qwen2.5-7B-Instruct",
         device: str = "auto",
         torch_dtype: str = "bfloat16",
         load_in_8bit: bool = False,
@@ -238,14 +238,14 @@ class LLMWrapper:
 
 
 def load_model(
-    model_name: str = "Qwen/Qwen2.5-0.5B-Instruct",
+    model_name: str = "Qwen/Qwen2.5-7B-Instruct",
     **kwargs,
 ) -> LLMWrapper:
     """
     Convenience function to load a model.
 
     Recommended models for Lean theorem proving:
-    - Qwen/Qwen2.5-0.5B-Instruct: Fast, good for testing
+    - Qwen/Qwen2.5-7B-Instruct: Fast, good for testing
     - Qwen/Qwen2.5-1.5B-Instruct: Better quality
     - Qwen/Qwen2.5-7B-Instruct: High quality
     - deepseek-ai/deepseek-math-7b-instruct: Specialized for math
@@ -259,7 +259,7 @@ def load_model(
 # Pre-configured model factories
 def load_qwen_small(**kwargs) -> LLMWrapper:
     """Load Qwen 0.5B for fast testing."""
-    return load_model("Qwen/Qwen2.5-0.5B-Instruct", **kwargs)
+    return load_model("Qwen/Qwen2.5-7B-Instruct", **kwargs)
 
 
 def load_qwen_medium(**kwargs) -> LLMWrapper:

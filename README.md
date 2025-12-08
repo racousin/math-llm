@@ -43,6 +43,23 @@ poetry install
 poetry shell
 ```
 
+### Setup Mathlib (Required for benchmarks)
+
+Mathlib is required to run competition math benchmarks (minif2f, FIMO, etc.):
+
+```bash
+# 1. Run setup script (downloads ~2GB, takes 10-20 min first time)
+./scripts/setup_mathlib.sh
+
+# 2. Add to your shell config (.bashrc, .zshrc, etc.)
+export MATHLIB_PROJECT_PATH=$HOME/.math-llm/mathlib-project
+```
+
+Or use make:
+```bash
+make setup-mathlib
+```
+
 ### Quick Test
 
 Verify the installation:
@@ -95,7 +112,7 @@ Example config structure:
 
 ```yaml
 model:
-  name: "Qwen/Qwen2.5-0.5B-Instruct"
+  name: "Qwen/Qwen2.5-7B-Instruct"
   device: "auto"
   torch_dtype: "bfloat16"
 
@@ -167,7 +184,7 @@ reward = 1.0 if proof_complete else 0.0
 
 Recommended models for Lean theorem proving:
 
-- `Qwen/Qwen2.5-0.5B-Instruct` - Fast, good for testing
+- `Qwen/Qwen2.5-7B-Instruct` - Fast, good for testing
 - `Qwen/Qwen2.5-1.5B-Instruct` - Better quality
 - `Qwen/Qwen2.5-7B-Instruct` - High quality
 - `deepseek-ai/deepseek-math-7b-instruct` - Specialized for math
@@ -183,7 +200,7 @@ from math_llm.models import load_model
 from math_llm.data import LeanProblem
 
 # Load model
-model = load_model("Qwen/Qwen2.5-0.5B-Instruct")
+model = load_model("Qwen/Qwen2.5-7B-Instruct")
 
 # Create agent
 with LeanExecutor() as executor:
