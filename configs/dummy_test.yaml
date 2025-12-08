@@ -1,0 +1,87 @@
+# Math-LLM Dummy Test Configuration
+# ===================================
+# Minimal config for quick local testing on Mac
+
+# Model configuration - tiny model for fast testing
+model:
+  name: "Qwen/Qwen2.5-0.5B-Instruct"  # Smallest available
+  max_length: 1024
+  device: "mps"  # Apple Silicon - use "cuda" for NVIDIA, "cpu" for CPU
+  torch_dtype: "float16"  # float16 for MPS compatibility
+  load_in_8bit: false
+  load_in_4bit: false
+  trust_remote_code: true
+
+# Lean server configuration
+lean:
+  lean_path: "lake"
+  project_path: null
+  timeout: 30
+  memory_limit: 2048
+  max_retries: 2
+
+# Agent configuration - fewer steps for testing
+agent:
+  max_steps: 3
+  temperature: 0.7
+  top_p: 0.95
+  stop_on_error: false
+  verbose: true
+
+# Data configuration - minimal
+# For real data, use: leandojo, minif2f-lean4, fimo, putnambench, proofnet
+# Or presets: "quick_test", "training", "evaluation", "competition"
+data:
+  sources:
+    - "minif2f-lean4"      # Small dataset for quick testing
+  cache_dir: ".cache/datasets"
+  train_split: 0.8
+  max_samples: 20          # Limit samples for testing
+  shuffle: true
+  seed: 42
+
+# Training configuration - minimal for testing
+training:
+  learning_rate: 1.0e-4
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  num_epochs: 1
+  warmup_ratio: 0.0
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+
+  # RL specific
+  reward_success: 1.0
+  reward_failure: 0.0
+  reward_step_penalty: -0.01
+  reward_iteration_decay: 0.95
+  kl_coef: 0.1
+  gamma: 0.99
+  ppo_epochs: 1
+  clip_range: 0.2
+  value_clip_range: 0.2
+
+  # PEFT - disable for simpler testing
+  use_peft: false
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+
+  # Logging
+  logging_steps: 1
+  save_steps: 100
+  eval_steps: 10
+  output_dir: "outputs/dummy_test"
+  wandb_project: null
+
+# Evaluation - minimal
+eval:
+  num_samples: 5
+  beam_size: 1
+  temperature: 0.0
+  save_trajectories: true
+  output_file: "outputs/dummy_test/eval_results.json"
+
+# Global
+seed: 42
+debug: true

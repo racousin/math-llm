@@ -1,0 +1,234 @@
+{
+  "num_problems": 5,
+  "num_solved": 4,
+  "success_rate": 0.8,
+  "avg_steps": 2.0,
+  "avg_steps_solved": 1.75,
+  "avg_steps_failed": 3.0,
+  "total_time": 0.009737014770507812,
+  "avg_time": 0.0013834476470947266,
+  "avg_time_solved": 0.001442551612854004,
+  "avg_time_failed": 0.0011470317840576172,
+  "by_source": {
+    "dummy": {
+      "total": 5,
+      "solved": 4,
+      "rate": 0.8
+    }
+  },
+  "by_difficulty": {},
+  "trajectories": [
+    {
+      "problem_id": "dummy/0",
+      "statement": "theorem add_comm (a b : Nat) : a + b = b + a := by\n  sorry",
+      "description": "Addition is commutative",
+      "steps": [
+        {
+          "step_num": 1,
+          "action": "rfl",
+          "thinking": "```lean4\nrfl\n```",
+          "result": {
+            "success": true,
+            "complete": false,
+            "message": "Progress",
+            "goals": [
+              "\u22a2 ?remaining_goal"
+            ],
+            "errors": [],
+            "hints": []
+          },
+          "timestamp": 1765190035.266653
+        },
+        {
+          "step_num": 2,
+          "action": "simp",
+          "thinking": "```lean4\nsimp\n```",
+          "result": {
+            "success": true,
+            "complete": true,
+            "message": "Proof complete!",
+            "goals": [],
+            "errors": [],
+            "hints": []
+          },
+          "timestamp": 1765190035.267164
+        }
+      ],
+      "success": true,
+      "total_time": 0.0037000179290771484,
+      "metadata": {}
+    },
+    {
+      "problem_id": "dummy/1",
+      "statement": "theorem add_zero (a : Nat) : a + 0 = a := by\n  sorry",
+      "description": "Adding zero is identity",
+      "steps": [
+        {
+          "step_num": 1,
+          "action": "ring",
+          "thinking": "```lean4\nring\n```",
+          "result": {
+            "success": false,
+            "complete": false,
+            "message": "Error",
+            "goals": [],
+            "errors": [
+              "unknown tactic"
+            ],
+            "hints": [
+              "Try a different tactic"
+            ]
+          },
+          "timestamp": 1765190035.268012
+        },
+        {
+          "step_num": 2,
+          "action": "omega",
+          "thinking": "```lean4\nomega\n```",
+          "result": {
+            "success": false,
+            "complete": false,
+            "message": "Error",
+            "goals": [],
+            "errors": [
+              "unknown tactic"
+            ],
+            "hints": [
+              "Try a different tactic"
+            ]
+          },
+          "timestamp": 1765190035.268319
+        },
+        {
+          "step_num": 3,
+          "action": "rfl",
+          "thinking": "```lean4\nrfl\n```",
+          "result": {
+            "success": true,
+            "complete": true,
+            "message": "Proof complete!",
+            "goals": [],
+            "errors": [],
+            "hints": []
+          },
+          "timestamp": 1765190035.268603
+        }
+      ],
+      "success": true,
+      "total_time": 0.0010559558868408203,
+      "metadata": {}
+    },
+    {
+      "problem_id": "dummy/2",
+      "statement": "theorem zero_add (a : Nat) : 0 + a = a := by\n  sorry",
+      "description": "Zero plus anything is identity",
+      "steps": [
+        {
+          "step_num": 1,
+          "action": "simp",
+          "thinking": "```lean4\nsimp\n```",
+          "result": {
+            "success": true,
+            "complete": true,
+            "message": "Proof complete!",
+            "goals": [],
+            "errors": [],
+            "hints": []
+          },
+          "timestamp": 1765190035.269309
+        }
+      ],
+      "success": true,
+      "total_time": 0.0005850791931152344,
+      "metadata": {}
+    },
+    {
+      "problem_id": "dummy/3",
+      "statement": "theorem mul_comm (a b : Nat) : a * b = b * a := by\n  sorry",
+      "description": "Multiplication is commutative",
+      "steps": [
+        {
+          "step_num": 1,
+          "action": "ring",
+          "thinking": "```lean4\nring\n```",
+          "result": {
+            "success": false,
+            "complete": false,
+            "message": "Error",
+            "goals": [],
+            "errors": [
+              "unknown tactic"
+            ],
+            "hints": [
+              "Try a different tactic"
+            ]
+          },
+          "timestamp": 1765190035.270557
+        },
+        {
+          "step_num": 2,
+          "action": "omega",
+          "thinking": "```lean4\nomega\n```",
+          "result": {
+            "success": false,
+            "complete": false,
+            "message": "Error",
+            "goals": [],
+            "errors": [
+              "unknown tactic"
+            ],
+            "hints": [
+              "Try a different tactic"
+            ]
+          },
+          "timestamp": 1765190035.270869
+        },
+        {
+          "step_num": 3,
+          "action": "rfl",
+          "thinking": "```lean4\nrfl\n```",
+          "result": {
+            "success": false,
+            "complete": false,
+            "message": "Error",
+            "goals": [],
+            "errors": [
+              "tactic failed, no goals to prove"
+            ],
+            "hints": [
+              "Try a different tactic"
+            ]
+          },
+          "timestamp": 1765190035.271154
+        }
+      ],
+      "success": false,
+      "total_time": 0.0011470317840576172,
+      "metadata": {}
+    },
+    {
+      "problem_id": "dummy/4",
+      "statement": "theorem mul_one (a : Nat) : a * 1 = a := by\n  sorry",
+      "description": "Multiplying by one is identity",
+      "steps": [
+        {
+          "step_num": 1,
+          "action": "simp",
+          "thinking": "```lean4\nsimp\n```",
+          "result": {
+            "success": true,
+            "complete": true,
+            "message": "Proof complete!",
+            "goals": [],
+            "errors": [],
+            "hints": []
+          },
+          "timestamp": 1765190035.271904
+        }
+      ],
+      "success": true,
+      "total_time": 0.0004291534423828125,
+      "metadata": {}
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+# Math-LLM DGX Spark Configuration
+# ==================================
+# Full training config for DGX Spark (8x A100)
+
+# Model configuration - larger model for production
+model:
+  name: "Qwen/Qwen2.5-7B-Instruct"  # Or "deepseek-ai/deepseek-math-7b-instruct"
+  max_length: 4096
+  device: "auto"
+  torch_dtype: "bfloat16"
+  load_in_8bit: false
+  load_in_4bit: false
+  trust_remote_code: true
+
+# Lean server configuration
+lean:
+  lean_path: "lake"
+  project_path: null
+  timeout: 120
+  memory_limit: 8192
+  max_retries: 3
+
+# Agent configuration
+agent:
+  max_steps: 15
+  temperature: 0.7
+  top_p: 0.95
+  stop_on_error: false
+  verbose: false  # Less verbose for large runs
+
+# Data configuration - full Lean 4 datasets
+# Available: leandojo, minif2f-lean4, fimo, putnambench, proofnet, formal-conjectures, mathlib4
+data:
+  sources:
+    - "leandojo"           # ~100k theorem-proof pairs (primary training)
+    - "mathlib4"           # ~150k from Mathlib4 repo
+    - "minif2f-lean4"      # ~488 competition problems
+    - "fimo"               # ~149 IMO problems
+    - "putnambench"        # ~1.7k Putnam problems
+    - "proofnet"           # ~370 undergraduate problems
+  cache_dir: "/data/math-llm/datasets"
+  train_split: 0.95
+  max_samples: null
+  shuffle: true
+  seed: 42
+
+# Training configuration - full scale
+training:
+  learning_rate: 5.0e-6
+  batch_size: 32  # Large batch with 8 GPUs
+  gradient_accumulation_steps: 8
+  num_epochs: 10
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+
+  # RL specific
+  reward_success: 1.0
+  reward_failure: 0.0
+  reward_step_penalty: -0.005
+  reward_iteration_decay: 0.98
+  kl_coef: 0.05
+  gamma: 0.995
+  ppo_epochs: 4
+  clip_range: 0.2
+  value_clip_range: 0.2
+
+  # PEFT/LoRA
+  use_peft: true
+  lora_r: 64
+  lora_alpha: 128
+  lora_dropout: 0.05
+
+  # Logging
+  logging_steps: 50
+  save_steps: 1000
+  eval_steps: 500
+  output_dir: "/data/math-llm/outputs"
+  wandb_project: "math-llm-dgx"
+
+# Evaluation
+eval:
+  num_samples: 500
+  beam_size: 1
+  temperature: 0.0
+  save_trajectories: true
+  output_file: "/data/math-llm/outputs/eval_results.json"
+
+# Global
+seed: 42
+debug: false

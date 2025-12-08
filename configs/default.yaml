@@ -1,0 +1,90 @@
+# Math-LLM Default Configuration
+# ================================
+
+# Model configuration
+model:
+  name: "Qwen/Qwen2.5-0.5B-Instruct"  # Small model for testing
+  max_length: 2048
+  device: "auto"
+  torch_dtype: "bfloat16"
+  load_in_8bit: false
+  load_in_4bit: false
+  trust_remote_code: true
+
+# Lean server configuration
+lean:
+  lean_path: "lake"
+  project_path: null  # Will create temp project
+  timeout: 60
+  memory_limit: 4096
+  max_retries: 3
+
+# Agent configuration
+agent:
+  max_steps: 10
+  temperature: 0.7
+  top_p: 0.95
+  stop_on_error: false
+  verbose: true
+
+# Data configuration
+# Available Lean 4 sources:
+#   HuggingFace: leandojo, minif2f-lean4, fimo, putnambench, proofnet
+#   Git: formal-conjectures, mathlib4
+# Presets: "quick_test", "training", "evaluation", "competition", "all"
+data:
+  sources:
+    - "leandojo"           # ~100k theorem-proof pairs
+    - "minif2f-lean4"      # ~488 competition problems
+  cache_dir: ".cache/datasets"
+  train_split: 0.9
+  max_samples: null
+  shuffle: true
+  seed: 42
+
+# Training configuration
+training:
+  # Basic params
+  learning_rate: 1.0e-5
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  num_epochs: 3
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+
+  # RL/PPO specific
+  reward_success: 1.0
+  reward_failure: 0.0
+  reward_step_penalty: -0.01
+  reward_iteration_decay: 0.95
+  kl_coef: 0.1
+  gamma: 0.99
+  ppo_epochs: 4
+  clip_range: 0.2
+  value_clip_range: 0.2
+
+  # PEFT/LoRA
+  use_peft: true
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+  # Logging
+  logging_steps: 10
+  save_steps: 500
+  eval_steps: 100
+  output_dir: "outputs"
+  wandb_project: null  # Set to enable wandb logging
+
+# Evaluation configuration
+eval:
+  num_samples: 100
+  beam_size: 1
+  temperature: 0.0
+  save_trajectories: true
+  output_file: "eval_results.json"
+
+# Global settings
+seed: 42
+debug: false
