@@ -69,6 +69,7 @@ def main():
     console.print(f"Samples: {args.num_samples or 'all'}")
     console.print(f"Max steps: {args.max_steps}")
     console.print(f"Model: {args.model}")
+    console.print(f"Lean mode: REPL (fast)")
     console.print()
 
     # Load dataset

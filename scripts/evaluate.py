@@ -29,7 +29,7 @@ def main():
     from math_llm.config import load_config
     from math_llm.data.loaders import create_dummy_dataset
     from math_llm.models.llm import LLMWrapper
-    from math_llm.lean import LeanExecutor, LeanServer
+    from math_llm.lean import LeanExecutor, LeanREPL
     from math_llm.agent import LeanAgent, Evaluator
 
     # Load config
@@ -49,10 +49,10 @@ def main():
     )
     model.load()
 
-    # Setup Lean executor (always real Lean)
-    console.print("[blue]Starting Lean server...[/blue]")
-    lean_server = LeanServer(timeout=config.lean.timeout)
-    executor = LeanExecutor(server=lean_server)
+    # Setup Lean executor (REPL for fast execution)
+    console.print("[blue]Starting Lean REPL...[/blue]")
+    lean_repl = LeanREPL(timeout=config.lean.timeout)
+    executor = LeanExecutor(server=lean_repl)
     executor.start()
 
     try:

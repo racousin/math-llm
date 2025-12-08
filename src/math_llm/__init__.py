@@ -9,14 +9,14 @@ __version__ = "0.1.0"
 
 from math_llm.config import Config, load_config
 from math_llm.agent import LeanAgent
-from math_llm.lean import LeanServer, LeanExecutor
+from math_llm.lean import LeanREPL, LeanExecutor
 from math_llm.training import RLTrainer
 
 __all__ = [
     "Config",
     "load_config",
     "LeanAgent",
-    "LeanServer",
+    "LeanREPL",
     "LeanExecutor",
     "RLTrainer",
 ]

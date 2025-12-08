@@ -31,7 +31,7 @@ def test_imports():
         from math_llm.data.loaders import create_dummy_dataset
         console.print("  ✓ math_llm.data.loaders")
 
-        from math_llm.lean import LeanServer, LeanExecutor
+        from math_llm.lean import LeanREPL, LeanExecutor
         console.print("  ✓ math_llm.lean")
 
         from math_llm.agent import LeanAgent, Trajectory
@@ -84,22 +84,22 @@ def test_dataset():
         return False
 
 
-def test_lean_server():
-    """Test Lean server (optional - requires Lean installation)."""
-    console.print("\n[blue]Testing Lean server...[/blue]")
+def test_lean_repl():
+    """Test Lean REPL (optional - requires Lean installation)."""
+    console.print("\n[blue]Testing Lean REPL...[/blue]")
 
     try:
-        from math_llm.lean import LeanServer
+        from math_llm.lean import LeanREPL
 
-        server = LeanServer(timeout=10)
-        server.start()
+        repl = LeanREPL(timeout=10)
+        repl.start()
 
-        # Test simple code
-        result = server.execute("theorem test : 1 = 1 := rfl")
-        server.stop()
+        # Test simple proof
+        result = repl.check_proof("theorem test : 1 = 1 := by sorry", "rfl")
+        repl.stop()
 
         if result.is_success:
-            console.print("  ✓ Lean server working")
+            console.print("  ✓ Lean REPL working")
             return True
         else:
             console.print(f"  [yellow]⚠ Lean executed but returned: {result.status}[/yellow]")
@@ -108,7 +108,7 @@ def test_lean_server():
         console.print("  [yellow]⚠ Lean not installed (skipping)[/yellow]")
         return True  # Not a failure, just not installed
     except Exception as e:
-        console.print(f"  [red]✗ Lean server error: {e}[/red]")
+        console.print(f"  [red]✗ Lean REPL error: {e}[/red]")
         return False
 
 
@@ -212,7 +212,7 @@ def main():
         ("Imports", test_imports),
         ("Config", test_config),
         ("Dataset", test_dataset),
-        ("Lean Server", test_lean_server),
+        ("Lean REPL", test_lean_repl),
         ("Trajectory", test_trajectory),
         ("Rewards", test_rewards),
     ]

@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-from math_llm.lean.server import LeanServer, LeanResult
+from math_llm.lean.server import LeanREPL, LeanResult
 
 
 @dataclass
@@ -69,11 +69,19 @@ class ExecutionResult:
 
 
 class LeanExecutor:
-    """Executes Lean tactics and returns structured results."""
+    """
+    Executes Lean tactics and returns structured results.
 
-    def __init__(self, server: Optional[LeanServer] = None):
-        self.server = server or LeanServer()
-        self._owns_server = server is None
+    Uses LeanREPL for fast execution (~0.1s per check after initial load).
+    """
+
+    def __init__(self, server: Optional[LeanREPL] = None):
+        if server:
+            self.server = server
+            self._owns_server = False
+        else:
+            self.server = LeanREPL()
+            self._owns_server = True
 
     def start(self) -> None:
         if self._owns_server:

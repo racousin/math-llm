@@ -268,7 +268,7 @@ class SuggestTacticsTool(Tool):
         "required": []
     }
 
-    def __init__(self, server: "LeanServer", statement: str):
+    def __init__(self, server: "LeanREPL", statement: str):
         self.server = server
         self.statement = statement
 
@@ -370,7 +370,7 @@ class SearchLemmasTool(Tool):
         "set": ["Set.mem_def", "Set.subset_def", "Set.union_def", "Set.inter_def"],
     }
 
-    def __init__(self, server: Optional["LeanServer"] = None):
+    def __init__(self, server: Optional["LeanREPL"] = None):
         self.server = server
 
     def execute(self, query: str, search_type: str = "name") -> ToolResult:
@@ -429,7 +429,7 @@ class CheckTypeTool(Tool):
         "required": ["expr"]
     }
 
-    def __init__(self, server: "LeanServer"):
+    def __init__(self, server: "LeanREPL"):
         self.server = server
 
     def execute(self, expr: str) -> ToolResult:
@@ -651,7 +651,7 @@ class ToolRegistry:
 
 def create_proof_tools(
     executor: "LeanExecutor",
-    server: "LeanServer",
+    server: "LeanREPL",
     statement: str,
     memory: "ProofMemory",
 ) -> ToolRegistry:
