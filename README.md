@@ -185,12 +185,6 @@ math-llm/
 └── README.md
 ```
 
-## Recommended Models
-
-- `Qwen/Qwen2.5-7B-Instruct` (default) - Good balance
-- `Qwen/Qwen2.5-1.5B-Instruct` - Faster, lower quality
-- `deepseek-ai/deepseek-math-7b-instruct` - Math specialized
-
 ## License
 
 MIT

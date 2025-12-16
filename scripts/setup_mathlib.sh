@@ -12,10 +12,9 @@
 set -e
 
 # =============================================================================
-# LEAN/MATHLIB VERSION - Must be kept in sync with src/math_llm/lean_server.py
+# MATHLIB VERSION - Lean toolchain is set automatically by lake update
 # =============================================================================
 MATHLIB_VERSION="v4.25.2"
-LEAN_TOOLCHAIN="leanprover/lean4:v4.25.2"
 # =============================================================================
 
 PROJECT_DIR="${MATHLIB_PROJECT_PATH:-$HOME/.lean-bench}"
@@ -65,9 +64,6 @@ require «repl» from git
 @[default_target]
 lean_lib «LeanBench»
 EOF
-
-# Create lean-toolchain
-echo "$LEAN_TOOLCHAIN" > lean-toolchain
 
 # Create basic structure
 mkdir -p LeanBench
