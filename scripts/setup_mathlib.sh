@@ -1,67 +1,98 @@
 #!/bin/bash
-# Setup Mathlib project for math-llm
-# Run once to download and build Mathlib cache
+#
+# Setup Lean server with Mathlib and REPL.
+#
+# This script:
+# 1. Installs elan (Lean version manager) if not present
+# 2. Creates a Lean project with Mathlib dependencies
+# 3. Downloads the Mathlib cache (~2GB)
+#
+# After running, set MATHLIB_PROJECT_PATH to point to the project.
 
 set -e
 
 # =============================================================================
-# VERSION CONFIGURATION
-# =============================================================================
-# IMPORTANT: These versions must match src/math_llm/config.py
-# The Lean/Mathlib version affects LLM training - changing requires retraining!
-#
-# To update: change both here AND in src/math_llm/config.py
+# LEAN/MATHLIB VERSION - Must be kept in sync with src/math_llm/lean_server.py
 # =============================================================================
 MATHLIB_VERSION="v4.25.2"
 LEAN_TOOLCHAIN="leanprover/lean4:v4.25.2"
+# =============================================================================
 
-MATHLIB_DIR="${MATHLIB_PROJECT_PATH:-$HOME/.math-llm/mathlib-project}"
+PROJECT_DIR="${MATHLIB_PROJECT_PATH:-$HOME/.lean-bench}"
 
-echo "Setting up Mathlib project at: $MATHLIB_DIR"
+echo "=================================="
+echo "Lean Server Setup"
+echo "=================================="
 echo "Mathlib version: $MATHLIB_VERSION"
-echo "Lean toolchain: $LEAN_TOOLCHAIN"
+echo "Project directory: $PROJECT_DIR"
 echo ""
 
-# Create directory
-mkdir -p "$MATHLIB_DIR"
-cd "$MATHLIB_DIR"
+# Check for elan
+if ! command -v elan &> /dev/null; then
+    echo "Installing elan (Lean version manager)..."
+    curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+    source ~/.elan/env
+fi
 
-# Create lakefile.lean with pinned Mathlib version
+# Ensure elan is in PATH
+export PATH="$HOME/.elan/bin:$PATH"
+
+# Check lake is available
+if ! command -v lake &> /dev/null; then
+    echo "Error: lake not found. Please ensure elan is installed correctly."
+    exit 1
+fi
+
+echo "Using lake version: $(lake --version)"
+
+# Create project directory
+mkdir -p "$PROJECT_DIR"
+cd "$PROJECT_DIR"
+
+# Create lakefile.lean
 cat > lakefile.lean << EOF
 import Lake
 open Lake DSL
 
-package «math_llm_workspace» where
-  leanOptions := #[
-    ⟨\`pp.unicode.fun, true⟩,
-    ⟨\`autoImplicit, false⟩
-  ]
+package «lean_bench»
 
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4" @ "$MATHLIB_VERSION"
 
+require «repl» from git
+  "https://github.com/leanprover-community/repl" @ "master"
+
 @[default_target]
-lean_lib «MathLLM» where
-  globs := #[.submodules \`MathLLM]
+lean_lib «LeanBench»
 EOF
 
-# Set lean-toolchain to pinned version (not fetched from master!)
+# Create lean-toolchain
 echo "$LEAN_TOOLCHAIN" > lean-toolchain
-echo "Using toolchain: $LEAN_TOOLCHAIN"
 
-# Create source directory
-mkdir -p MathLLM
-echo "-- Math LLM workspace" > MathLLM/Basic.lean
-
-# Download Mathlib cache (much faster than building)
-echo "Downloading Mathlib cache..."
-lake exe cache get
-
-# Build
-echo "Building project..."
-lake build
+# Create basic structure
+mkdir -p LeanBench
+echo "-- Lean Bench" > LeanBench/Basic.lean
 
 echo ""
-echo "Setup complete!"
-echo "Add to your shell config:"
-echo "  export MATHLIB_PROJECT_PATH=$MATHLIB_DIR"
+echo "Updating lake dependencies..."
+lake update
+
+echo ""
+echo "Downloading Mathlib cache (this may take 10-20 minutes)..."
+lake exe cache get
+
+echo ""
+echo "Building REPL..."
+lake build repl
+
+echo ""
+echo "=================================="
+echo "Setup Complete!"
+echo "=================================="
+echo ""
+echo "Project created at: $PROJECT_DIR"
+echo ""
+echo "To use this project, set the environment variable:"
+echo "  export MATHLIB_PROJECT_PATH=$PROJECT_DIR"
+echo ""
+echo "You can add this to your shell profile (~/.bashrc or ~/.zshrc)"

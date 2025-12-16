@@ -1,8 +1,32 @@
-# Math-LLM Makefile
-# ==================
+# Lean Proof Benchmark
+# ====================
+#
+# Simple benchmark for LLM agents on Lean 4 theorem proving.
+#
+# Commands:
+#   make lean-server    - Setup Lean server with Mathlib
+#   make simple         - Run simple agent on dummy data
+#   make tool           - Run tool agent on minif2f-lean4 (10 samples)
 
-.PHONY: help install test clean train train-dummy eval eval-all download lint format
+.PHONY: help install lean-server simple tool clean
 
+help:
+	@echo "Lean Proof Benchmark"
+	@echo "===================="
+	@echo ""
+	@echo "Setup:"
+	@echo "  make install      - Install Python dependencies"
+	@echo "  make lean-server  - Setup Lean server with Mathlib (~2GB, 10-20min)"
+	@echo ""
+	@echo "Benchmarks:"
+	@echo "  make simple       - Run simple agent on dummy data"
+	@echo "  make tool         - Run tool agent on minif2f-lean4 (10 samples)"
+	@echo ""
+	@echo "Custom runs:"
+	@echo "  python -m math_llm dummy simple"
+	@echo "  python -m math_llm dummy tool"
+	@echo "  python -m math_llm minif2f-lean4 simple --samples 10"
+	@echo "  python -m math_llm minif2f-lean4 tool --samples 10"
 
 # =============================================================================
 # Setup
@@ -11,247 +35,41 @@
 install:
 	poetry install
 
-setup-mathlib:
-	@echo "Setting up Mathlib (downloads ~2GB, takes 10-20 min)..."
-	./scripts/setup_mathlib.sh
+# Setup Lean server with Mathlib + REPL
+lean-server:
+	@echo "Setting up Lean server with Mathlib + REPL..."
+	@echo "This downloads ~2GB and takes 10-20 minutes on first run."
 	@echo ""
-	@echo "Add to your shell config:"
-	@echo "  export MATHLIB_PROJECT_PATH=$$HOME/.math-llm/mathlib-project"
-
-download:
-	poetry run python scripts/download_data.py \
-		--sources leandojo minif2f-lean4 fimo putnambench proofnet formal-conjectures \
-		--load
-
-download-quick:
-	poetry run python scripts/download_data.py --sources minif2f-lean4 --load
-
-download-training:
-	poetry run python scripts/download_data.py --sources leandojo mathlib4 --load
+	./scripts/setup_mathlib.sh
 
 # =============================================================================
-# Testing
+# Benchmarks
 # =============================================================================
 
-test:
-	poetry run python scripts/quick_test.py
+# Run simple agent on dummy data
+simple:
+	poetry run python -m math_llm dummy simple
 
-test-unit:
-	poetry run pytest tests/ -v
-
-test-all: test test-unit
-
-# =============================================================================
-# Training
-# =============================================================================
-
-# Dummy training (with real Lean, small dataset)
-train-dummy:
-	poetry run python scripts/train.py \
-		--config configs/dummy_test.yaml \
-		--debug
-
-# Training with real model on dummy data
-train-dummy-model:
-	poetry run python scripts/train.py \
-		--config configs/dummy_test.yaml \
-		--debug
-
-# Default training
-train:
-	poetry run python scripts/train.py --config configs/default.yaml
-
-# DGX Spark training (multi-GPU)
-train-dgx:
-	poetry run python scripts/train.py --config configs/dgx_spark.yaml
-
-# Training with specific model
-train-qwen:
-	poetry run python scripts/train.py \
-		--config configs/default.yaml
-
-train-deepseek:
-	MODEL_NAME=deepseek-ai/deepseek-math-7b-instruct \
-	poetry run python scripts/train.py --config configs/default.yaml
+# Run tool agent on minif2f-lean4 with 10 samples
+tool:
+	poetry run python -m math_llm minif2f-lean4 tool --samples 10
 
 # =============================================================================
-# Evaluation
+# Additional commands
 # =============================================================================
 
-# Output directory for eval results
-EVAL_OUTPUT ?= outputs/eval
+# Run simple agent on minif2f-lean4
+simple-minif2f:
+	poetry run python -m math_llm minif2f-lean4 simple --samples 10
 
-# Dummy evaluation (simple problems, real LLM + real Lean)
-eval-dummy:
-	poetry run python scripts/evaluate.py \
-		--config configs/dummy_test.yaml \
-		--num-samples 5 \
-		--output $(EVAL_OUTPUT)/dummy_results.json
+# Run tool agent on dummy data
+tool-dummy:
+	poetry run python -m math_llm dummy tool
 
-# Evaluate on MiniF2F-Lean4
-eval:
-	@mkdir -p $(EVAL_OUTPUT)
-	poetry run python -c "\
-from math_llm.data import load_sources, LeanDataset; \
-from math_llm.models import load_model; \
-from math_llm.lean import LeanExecutor; \
-from math_llm.agent import LeanAgent, Evaluator; \
-from math_llm.config import load_config; \
-import json; \
-\
-config = load_config('configs/default.yaml'); \
-print('Loading model...'); \
-model = load_model(config.model.name, device=config.model.device); \
-print('Loading minif2f-lean4...'); \
-problems = load_sources(['minif2f-lean4']); \
-dataset = LeanDataset(problems[:100]); \
-print(f'Evaluating on {len(dataset)} problems...'); \
-with LeanExecutor() as executor: \
-    agent = LeanAgent(model=model, executor=executor, config=config.agent); \
-    evaluator = Evaluator(agent); \
-    results = evaluator.evaluate(dataset, save_path='$(EVAL_OUTPUT)/minif2f_results.json'); \
-"
-
-# Evaluate on all benchmarks (recommended)
-eval-all:
-	poetry run python scripts/eval_all.py --output $(EVAL_OUTPUT)
-
-# Evaluate on all with specific config
-eval-all-config:
-	@test -n "$(CONFIG)" || (echo "Usage: make eval-all-config CONFIG=path" && exit 1)
-	poetry run python scripts/eval_all.py --config $(CONFIG) --output $(EVAL_OUTPUT)
-
-# Evaluate on all with checkpoint
-eval-all-checkpoint:
-	@test -n "$(CHECKPOINT)" || (echo "Usage: make eval-all-checkpoint CHECKPOINT=path" && exit 1)
-	poetry run python scripts/eval_all.py --checkpoint $(CHECKPOINT) --output $(EVAL_OUTPUT)
-
-# Individual benchmark evaluations (with real model)
-
-eval-minif2f:
-	@mkdir -p $(EVAL_OUTPUT)
-	@echo "Evaluating on MiniF2F-Lean4..."
-	poetry run python -c "\
-from math_llm.data import load_sources, LeanDataset; \
-from math_llm.models import load_model; \
-from math_llm.lean import LeanExecutor; \
-from math_llm.agent import LeanAgent, Evaluator; \
-from math_llm.config import load_config; \
-config = load_config('configs/default.yaml'); \
-model = load_model(config.model.name, device=config.model.device); \
-problems = load_sources(['minif2f-lean4']); \
-dataset = LeanDataset(problems); \
-print(f'Evaluating on {len(dataset)} MiniF2F problems...'); \
-with LeanExecutor() as executor: \
-    agent = LeanAgent(model=model, executor=executor, config=config.agent); \
-    evaluator = Evaluator(agent); \
-    results = evaluator.evaluate(dataset, save_path='$(EVAL_OUTPUT)/minif2f_results.json'); \
-"
-
-eval-fimo:
-	@mkdir -p $(EVAL_OUTPUT)
-	@echo "Evaluating on FIMO (IMO problems)..."
-	poetry run python -c "\
-from math_llm.data import load_sources, LeanDataset; \
-from math_llm.models import load_model; \
-from math_llm.lean import LeanExecutor; \
-from math_llm.agent import LeanAgent, Evaluator; \
-from math_llm.config import load_config; \
-config = load_config('configs/default.yaml'); \
-model = load_model(config.model.name, device=config.model.device); \
-problems = load_sources(['fimo']); \
-dataset = LeanDataset(problems); \
-print(f'Evaluating on {len(dataset)} FIMO problems...'); \
-with LeanExecutor() as executor: \
-    agent = LeanAgent(model=model, executor=executor, config=config.agent); \
-    evaluator = Evaluator(agent); \
-    results = evaluator.evaluate(dataset, save_path='$(EVAL_OUTPUT)/fimo_results.json'); \
-"
-
-eval-putnam:
-	@mkdir -p $(EVAL_OUTPUT)
-	@echo "Evaluating on PutnamBench..."
-	poetry run python -c "\
-from math_llm.data import load_sources, LeanDataset; \
-from math_llm.models import load_model; \
-from math_llm.lean import LeanExecutor; \
-from math_llm.agent import LeanAgent, Evaluator; \
-from math_llm.config import load_config; \
-config = load_config('configs/default.yaml'); \
-model = load_model(config.model.name, device=config.model.device); \
-problems = load_sources(['putnambench']); \
-dataset = LeanDataset(problems); \
-print(f'Evaluating on {len(dataset)} Putnam problems...'); \
-with LeanExecutor() as executor: \
-    agent = LeanAgent(model=model, executor=executor, config=config.agent); \
-    evaluator = Evaluator(agent); \
-    results = evaluator.evaluate(dataset, save_path='$(EVAL_OUTPUT)/putnam_results.json'); \
-"
-
-eval-proofnet:
-	@mkdir -p $(EVAL_OUTPUT)
-	@echo "Evaluating on ProofNet..."
-	poetry run python -c "\
-from math_llm.data import load_sources, LeanDataset; \
-from math_llm.models import load_model; \
-from math_llm.lean import LeanExecutor; \
-from math_llm.agent import LeanAgent, Evaluator; \
-from math_llm.config import load_config; \
-config = load_config('configs/default.yaml'); \
-model = load_model(config.model.name, device=config.model.device); \
-problems = load_sources(['proofnet']); \
-dataset = LeanDataset(problems); \
-print(f'Evaluating on {len(dataset)} ProofNet problems...'); \
-with LeanExecutor() as executor: \
-    agent = LeanAgent(model=model, executor=executor, config=config.agent); \
-    evaluator = Evaluator(agent); \
-    results = evaluator.evaluate(dataset, save_path='$(EVAL_OUTPUT)/proofnet_results.json'); \
-"
-
-# Evaluate with a specific checkpoint
-eval-checkpoint:
-	@test -n "$(CHECKPOINT)" || (echo "Usage: make eval-checkpoint CHECKPOINT=path/to/checkpoint" && exit 1)
-	poetry run python scripts/evaluate.py \
-		--config configs/default.yaml \
-		--checkpoint $(CHECKPOINT) \
-		--output $(EVAL_OUTPUT)/checkpoint_results.json
-
-# =============================================================================
-# Development
-# =============================================================================
-
-lint:
-	poetry run ruff check src/ scripts/ tests/
-
-format:
-	poetry run black src/ scripts/ tests/
-
-typecheck:
-	poetry run mypy src/
-
-# =============================================================================
-# Data Management
-# =============================================================================
-
-list-data:
-	@poetry run python -c "\
-from math_llm.data import print_sources; \
-print_sources(); \
-"
-
-# Show dataset statistics
-data-stats:
-	@poetry run python -c "\
-from math_llm.data import load_sources; \
-from collections import Counter; \
-print('Loading all datasets...'); \
-problems = load_sources('all'); \
-print(f'\nTotal problems: {len(problems)}'); \
-sources = Counter(p.source for p in problems); \
-print('\nBy source:'); \
-for s, c in sources.most_common(): \
-    print(f'  {s}: {c}'); \
-"
+# Run all dummy data benchmarks
+test-dummy:
+	poetry run python -m math_llm dummy simple
+	poetry run python -m math_llm dummy tool
 
 # =============================================================================
 # Cleanup
@@ -260,39 +78,5 @@ for s, c in sources.most_common(): \
 clean:
 	rm -rf outputs/
 	rm -rf .cache/
-	rm -rf __pycache__
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-
-clean-cache:
-	rm -rf .cache/datasets/
-
-clean-outputs:
-	rm -rf outputs/
-
-# =============================================================================
-# Docker (optional)
-# =============================================================================
-
-docker-build:
-	docker build -t math-llm .
-
-docker-run:
-	docker run --gpus all -it -v $(PWD)/outputs:/app/outputs math-llm
-
-# =============================================================================
-# Shortcuts
-# =============================================================================
-
-# Quick start sequence
-quickstart: install test
-	@echo ""
-	@echo "Installation successful!"
-	@echo "Next steps:"
-	@echo "  make setup-mathlib   # Setup Mathlib (required for benchmarks)"
-	@echo "  make download-quick  # Download minimal dataset"
-	@echo "  make eval-dummy      # Test evaluation"
-
-# Full setup
-setup: install setup-mathlib download test
-	@echo "Full setup complete!"

@@ -1,7 +1,7 @@
 """
-Lean server interface for interacting with Lean 4.
+Lean REPL server interface.
 
-Uses LeanREPL - persistent process with JSON protocol for fast execution (~0.1s per check).
+Provides fast Lean 4 code execution using persistent REPL process.
 """
 
 import json
@@ -12,15 +12,17 @@ import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from rich.console import Console
+# =============================================================================
+# LEAN/MATHLIB VERSION - Must be kept in sync with scripts/setup_mathlib.sh
+# =============================================================================
+MATHLIB_VERSION = "v4.25.2"
+LEAN_TOOLCHAIN = "leanprover/lean4:v4.25.2"
+# =============================================================================
 
-from math_llm.config import MATHLIB_VERSION, LEAN_TOOLCHAIN
-
-console = Console()
+DEFAULT_IMPORTS = "import Mathlib\nimport Aesop"
 
 
 def _get_lean_env() -> dict:
@@ -32,62 +34,32 @@ def _get_lean_env() -> dict:
     return env
 
 
-DEFAULT_IMPORTS = """import Mathlib
-import Aesop
-"""
-
-
-class LeanResultStatus(Enum):
-    SUCCESS = "success"
-    ERROR = "error"
-    TIMEOUT = "timeout"
-    INCOMPLETE = "incomplete"
-
-
 @dataclass
 class LeanResult:
     """Result of Lean code execution."""
-
-    status: LeanResultStatus
+    success: bool
+    complete: bool  # Proof is complete (no goals, no sorry)
     output: str
     errors: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
     goals: list[str] = field(default_factory=list)
     execution_time: float = 0.0
 
-    @property
-    def is_success(self) -> bool:
-        return self.status == LeanResultStatus.SUCCESS
-
-    @property
-    def is_complete(self) -> bool:
-        return self.is_success and not self.goals and "sorry" not in self.output.lower()
-
     def to_dict(self) -> dict:
         return {
-            "status": self.status.value,
+            "success": self.success,
+            "complete": self.complete,
             "output": self.output,
             "errors": self.errors,
-            "warnings": self.warnings,
             "goals": self.goals,
             "execution_time": self.execution_time,
-            "is_complete": self.is_complete,
         }
 
 
-# =============================================================================
-# LEAN REPL (Fast - persistent process)
-# =============================================================================
-
-class LeanREPL:
+class LeanServer:
     """
-    Fast Lean execution using persistent REPL process.
+    Lean REPL server for fast proof checking.
 
-    Uses the repl package from mathlib4. First check loads imports (~10s),
-    subsequent checks are fast (~0.1s).
-
-    Install repl: Add to lakefile.lean:
-        require «repl» from git "https://github.com/leanprover-community/repl" @ "master"
+    First check loads imports (~60s), subsequent checks are fast (~0.1s).
     """
 
     def __init__(
@@ -103,11 +75,13 @@ class LeanREPL:
         self._temp_dir: Optional[tempfile.TemporaryDirectory] = None
         self._lock = threading.Lock()
         self._imports_loaded = False
+        self._env_id = 0
 
     def start(self) -> None:
-        """Start the REPL process."""
+        """Start the REPL process and preload imports."""
         self._ensure_project()
         self._start_process()
+        self._load_imports()
 
     def stop(self) -> None:
         """Stop the REPL process."""
@@ -127,7 +101,7 @@ class LeanREPL:
         if self.project_path and (self.project_path / "lakefile.lean").exists():
             return
 
-        self._temp_dir = tempfile.TemporaryDirectory(prefix="math_llm_lean_")
+        self._temp_dir = tempfile.TemporaryDirectory(prefix="lean_bench_")
         self.project_path = Path(self._temp_dir.name)
 
         # Create lakefile with repl dependency
@@ -135,7 +109,7 @@ class LeanREPL:
         lakefile.write_text(f"""import Lake
 open Lake DSL
 
-package «math_llm_workspace»
+package «lean_bench»
 
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4" @ "{MATHLIB_VERSION}"
@@ -144,19 +118,19 @@ require «repl» from git
   "https://github.com/leanprover-community/repl" @ "master"
 
 @[default_target]
-lean_lib «MathLLM»
+lean_lib «LeanBench»
 """)
 
         toolchain = self.project_path / "lean-toolchain"
         toolchain.write_text(f"{LEAN_TOOLCHAIN}\n")
 
-        (self.project_path / "MathLLM").mkdir(exist_ok=True)
-        (self.project_path / "MathLLM" / "Basic.lean").write_text("-- Math LLM\n")
+        (self.project_path / "LeanBench").mkdir(exist_ok=True)
+        (self.project_path / "LeanBench" / "Basic.lean").write_text("-- Lean Bench\n")
 
-        console.print(f"[blue]Created Lean project at {self.project_path}[/blue]")
+        print(f"[lean] Created project at {self.project_path}")
 
         # Download cache
-        console.print("[yellow]Downloading Mathlib cache...[/yellow]")
+        print("[lean] Downloading Mathlib cache (this may take a while)...")
         try:
             subprocess.run(
                 ["lake", "exe", "cache", "get"],
@@ -165,15 +139,15 @@ lean_lib «MathLLM»
                 timeout=600,
                 env=_get_lean_env(),
             )
-            console.print("[green]Cache downloaded[/green]")
+            print("[lean] Cache downloaded")
         except Exception as e:
-            console.print(f"[yellow]Cache warning: {e}[/yellow]")
+            print(f"[lean] Cache warning: {e}")
 
     def _start_process(self) -> None:
         """Start the REPL subprocess."""
-        console.print(f"[dim]Starting REPL in {self.project_path}...[/dim]")
+        print(f"[lean] Starting REPL in {self.project_path}...")
         self._process = subprocess.Popen(
-            ["lake", "env", "lean", "--run", "Repl"],
+            ["lake", "exe", "repl"],
             cwd=self.project_path,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -183,13 +157,12 @@ lean_lib «MathLLM»
         )
         self._imports_loaded = False
 
-        # Give process a moment to start and check it's alive
         time.sleep(0.5)
         if self._process.poll() is not None:
             stderr = self._process.stderr.read() if self._process.stderr else ""
-            console.print(f"[red]REPL failed to start: {stderr[:500]}[/red]")
+            print(f"[lean] REPL failed to start: {stderr[:500]}")
         else:
-            console.print("[dim]REPL process started[/dim]")
+            print("[lean] REPL process started")
 
     def _send_command(self, cmd: dict, timeout: Optional[int] = None) -> dict:
         """Send JSON command to REPL and get response."""
@@ -200,49 +173,81 @@ lean_lib «MathLLM»
 
         with self._lock:
             try:
-                # Send command
                 cmd_json = json.dumps(cmd)
-                self._process.stdin.write(cmd_json + "\n")
+                self._process.stdin.write(cmd_json + "\n\n")
                 self._process.stdin.flush()
 
-                # Read response with timeout using select
-                ready, _, _ = select.select([self._process.stdout], [], [], timeout)
-                if not ready:
-                    # Check if process died
-                    if self._process.poll() is not None:
+                start_time = time.time()
+                while True:
+                    elapsed = time.time() - start_time
+                    remaining = timeout - elapsed
+                    if remaining <= 0:
+                        return {"error": f"Timeout after {timeout}s"}
+
+                    ready, _, _ = select.select([self._process.stdout], [], [], remaining)
+                    if not ready:
+                        if self._process.poll() is not None:
+                            stderr = self._process.stderr.read() if self._process.stderr else ""
+                            return {"error": f"REPL died: {stderr[:500]}"}
+                        return {"error": f"Timeout after {timeout}s"}
+
+                    response_line = self._process.stdout.readline()
+                    if not response_line:
                         stderr = self._process.stderr.read() if self._process.stderr else ""
-                        return {"error": f"REPL process died: {stderr[:500]}"}
-                    return {"error": f"REPL timeout after {timeout}s"}
+                        return {"error": f"No response. stderr: {stderr[:500]}"}
 
-                response_line = self._process.stdout.readline()
-                if not response_line:
-                    stderr = self._process.stderr.read() if self._process.stderr else ""
-                    return {"error": f"No response from REPL. stderr: {stderr[:500]}"}
+                    response_line = response_line.strip()
+                    if not response_line:
+                        continue
 
-                return json.loads(response_line)
+                    try:
+                        return json.loads(response_line)
+                    except json.JSONDecodeError:
+                        continue
+
             except Exception as e:
                 return {"error": str(e)}
 
+    def _load_imports(self) -> bool:
+        """Load Mathlib imports. Returns True on success."""
+        if self._imports_loaded:
+            return True
+
+        print("[lean] Loading Mathlib imports (first time, ~60s)...")
+        resp = self._send_command({"cmd": DEFAULT_IMPORTS}, timeout=120)
+
+        if "error" in resp:
+            print(f"[lean] Failed to load imports: {resp['error']}")
+            return False
+
+        self._imports_loaded = True
+        self._env_id = resp.get("env", 0)
+        print("[lean] Imports loaded")
+        return True
+
     def check_proof(self, statement: str, proof: str) -> LeanResult:
-        """Check a proof using the REPL."""
+        """
+        Check if a proof is valid for a given statement.
+
+        Args:
+            statement: Lean theorem statement (with 'sorry' placeholder)
+            proof: Proof tactics to verify
+
+        Returns:
+            LeanResult with success/complete status and any errors/goals
+        """
         start_time = time.time()
 
-        # Load imports on first use (can take 30-60s for Mathlib)
-        if not self._imports_loaded:
-            console.print("[dim]Loading imports (first time only, may take ~60s)...[/dim]")
-            import_cmd = {"cmd": DEFAULT_IMPORTS.strip(), "env": 0}
-            resp = self._send_command(import_cmd, timeout=120)  # 2 min timeout for imports
-            if "error" in resp:
-                return LeanResult(
-                    status=LeanResultStatus.ERROR,
-                    output="",
-                    errors=[f"Import failed: {resp['error']}"],
-                    execution_time=time.time() - start_time,
-                )
-            self._imports_loaded = True
-            self._env_id = resp.get("env", 0)
+        if not self._load_imports():
+            return LeanResult(
+                success=False,
+                complete=False,
+                output="",
+                errors=["Failed to load Mathlib imports"],
+                execution_time=time.time() - start_time,
+            )
 
-        # Build code
+        # Build code - replace sorry with proof
         proof = proof.strip()
         if proof.startswith("by "):
             proof = proof[3:].strip()
@@ -259,13 +264,14 @@ lean_lib «MathLLM»
         resp = self._send_command(cmd)
 
         execution_time = time.time() - start_time
-        return self._parse_repl_response(resp, execution_time)
+        return self._parse_response(resp, execution_time)
 
-    def _parse_repl_response(self, resp: dict, execution_time: float) -> LeanResult:
-        """Parse REPL JSON response into LeanResult."""
+    def _parse_response(self, resp: dict, execution_time: float) -> LeanResult:
+        """Parse REPL response into LeanResult."""
         if "error" in resp:
             return LeanResult(
-                status=LeanResultStatus.ERROR,
+                success=False,
+                complete=False,
                 output=str(resp),
                 errors=[resp["error"]],
                 execution_time=execution_time,
@@ -273,33 +279,34 @@ lean_lib «MathLLM»
 
         messages = resp.get("messages", [])
         errors = [m["data"] for m in messages if m.get("severity") == "error"]
-        warnings = [m["data"] for m in messages if m.get("severity") == "warning"]
 
-        # Check for goals in sorries
+        # Check for remaining goals
         sorries = resp.get("sorries", [])
         goals = [s.get("goal", "") for s in sorries if s.get("goal")]
 
-        if errors:
-            status = LeanResultStatus.ERROR
-        elif goals or sorries:
-            status = LeanResultStatus.INCOMPLETE
-        else:
-            status = LeanResultStatus.SUCCESS
+        success = len(errors) == 0
+        complete = success and len(goals) == 0 and len(sorries) == 0
 
         return LeanResult(
-            status=status,
+            success=success,
+            complete=complete,
             output=json.dumps(resp),
             errors=errors,
-            warnings=warnings,
             goals=goals,
             execution_time=execution_time,
         )
 
-    def __enter__(self) -> "LeanREPL":
+    def run_tactic(self, statement: str, tactic: str) -> LeanResult:
+        """
+        Run a single tactic on a theorem statement.
+
+        Returns remaining goals or errors.
+        """
+        return self.check_proof(statement, tactic)
+
+    def __enter__(self) -> "LeanServer":
         self.start()
         return self
 
     def __exit__(self, *_) -> None:
         self.stop()
-
-

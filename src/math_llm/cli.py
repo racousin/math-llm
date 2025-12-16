@@ -1,190 +1,220 @@
 """
-Command-line interface for Math-LLM.
+CLI for Lean proof benchmarking.
+
+Usage:
+    python -m math_llm <dataset> <agent> [--samples N]
+
+Examples:
+    python -m math_llm dummy simple
+    python -m math_llm dummy tool
+    python -m math_llm minif2f-lean4 simple --samples 10
+    python -m math_llm minif2f-lean4 tool --samples 10
 """
 
-import sys
+import argparse
+import json
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from rich.console import Console
+from math_llm.data import load_data, list_datasets
+from math_llm.lean_server import LeanServer
+from math_llm.agents import SimpleAgent, ToolAgent
 
-console = Console()
 
+def run_benchmark(
+    dataset: str,
+    agent_type: str,
+    n_samples: Optional[int] = None,
+    model_name: str = "Qwen/Qwen2.5-7B-Instruct",
+    output_dir: str = "outputs",
+) -> dict:
+    """
+    Run benchmark on a dataset with specified agent.
 
-def train(config_path: Optional[str] = None):
-    """Run training."""
-    import argparse
+    Args:
+        dataset: Dataset name ('dummy' or 'minif2f-lean4')
+        agent_type: Agent type ('simple' or 'tool')
+        n_samples: Number of samples (None = all)
+        model_name: Model to use
+        output_dir: Directory for output files
 
-    parser = argparse.ArgumentParser(description="Train Math-LLM agent")
-    parser.add_argument("--config", "-c", type=str, default="configs/default.yaml")
-    parser.add_argument("--output", "-o", type=str, default="outputs")
-    parser.add_argument("--debug", action="store_true")
+    Returns:
+        Benchmark results dictionary
+    """
+    print(f"\n{'='*60}")
+    print(f"Lean Proof Benchmark")
+    print(f"{'='*60}")
+    print(f"Dataset: {dataset}")
+    print(f"Agent: {agent_type}")
+    print(f"Model: {model_name}")
+    print(f"Samples: {n_samples or 'all'}")
+    print(f"{'='*60}\n")
 
-    args = parser.parse_args()
+    # Load data
+    problems = load_data(dataset, n_samples)
+    print(f"Loaded {len(problems)} problems\n")
 
-    from math_llm.config import load_config
-    from math_llm.data.loaders import load_dataset, create_dummy_dataset
-    from math_llm.models.llm import load_model
-    from math_llm.lean import LeanExecutor
-    from math_llm.agent import LeanAgent
-    from math_llm.training import RLTrainer
+    # Start Lean server
+    print("Starting Lean server...")
+    lean_server = LeanServer()
+    lean_server.start()
 
-    # Load config
-    config = load_config(args.config)
-    if args.debug:
-        config.debug = True
-
-    console.print(f"[blue]Loading config from {args.config}[/blue]")
-
-    # Load model
-    model = load_model(
-        model_name=config.model.name,
-        device=config.model.device,
-        torch_dtype=config.model.torch_dtype,
-        load_in_4bit=config.model.load_in_4bit,
-    )
-
-    # Load dataset
-    if config.debug:
-        train_dataset = create_dummy_dataset(10)
-        val_dataset = create_dummy_dataset(5)
+    # Create agent
+    if agent_type == "simple":
+        agent = SimpleAgent(
+            model_name=model_name,
+            lean_server=lean_server,
+        )
+    elif agent_type == "tool":
+        agent = ToolAgent(
+            model_name=model_name,
+            lean_server=lean_server,
+        )
     else:
-        train_dataset, val_dataset = load_dataset(
-            sources=config.data.sources,
-            cache_dir=config.data.cache_dir,
-            tokenizer=model.get_tokenizer(),
-            train_split=config.data.train_split,
-        )
+        raise ValueError(f"Unknown agent type: {agent_type}. Use 'simple' or 'tool'")
 
-    console.print(f"[green]Loaded {len(train_dataset)} training problems[/green]")
+    # Run benchmark
+    results = []
+    start_time = time.time()
 
-    # Setup agent and trainer
-    with LeanExecutor() as executor:
-        agent = LeanAgent(
-            model=model,
-            executor=executor,
-            config=config.agent,
-        )
+    for i, problem in enumerate(problems):
+        print(f"\n[{i+1}/{len(problems)}] {problem.id}")
+        print(f"  Statement: {problem.statement[:80]}...")
 
-        trainer = RLTrainer(
-            model=model.get_model_for_training(),
-            tokenizer=model.get_tokenizer(),
-            config=config.training,
-            lean_executor=executor,
-        )
+        problem_start = time.time()
+        try:
+            result = agent.solve(problem)
+            problem_time = time.time() - problem_start
 
-        # Train
-        trainer.train(
-            agent=agent,
-            train_problems=train_dataset.problems,
-            val_problems=val_dataset.problems if val_dataset else None,
-            num_epochs=config.training.num_epochs,
-        )
+            status = "COMPLETE" if result.complete else ("OK" if result.success else "FAIL")
+            print(f"  Result: {status} ({problem_time:.2f}s)")
+            if result.proof:
+                print(f"  Proof: {result.proof[:60]}...")
 
-    console.print("[green]Training complete![/green]")
+            results.append({
+                "problem_id": problem.id,
+                "success": result.success,
+                "complete": result.complete,
+                "proof": result.proof,
+                "time": problem_time,
+                "error": result.error,
+            })
 
+        except Exception as e:
+            problem_time = time.time() - problem_start
+            print(f"  Error: {e}")
+            results.append({
+                "problem_id": problem.id,
+                "success": False,
+                "complete": False,
+                "proof": "",
+                "time": problem_time,
+                "error": str(e),
+            })
 
-def evaluate(config_path: Optional[str] = None):
-    """Run evaluation."""
-    import argparse
+    total_time = time.time() - start_time
 
-    parser = argparse.ArgumentParser(description="Evaluate Math-LLM agent")
-    parser.add_argument("--config", "-c", type=str, default="configs/default.yaml")
-    parser.add_argument("--checkpoint", type=str, help="Path to model checkpoint")
-    parser.add_argument("--output", "-o", type=str, default="eval_results.json")
-    parser.add_argument("--num-samples", "-n", type=int, default=100)
-    parser.add_argument("--debug", action="store_true")
+    # Stop Lean server
+    lean_server.stop()
 
-    args = parser.parse_args()
+    # Compute stats
+    n_total = len(results)
+    n_success = sum(1 for r in results if r["success"])
+    n_complete = sum(1 for r in results if r["complete"])
+    avg_time = sum(r["time"] for r in results) / n_total if n_total > 0 else 0
 
-    from math_llm.config import load_config
-    from math_llm.data.loaders import load_dataset, create_dummy_dataset
-    from math_llm.models.llm import load_model
-    from math_llm.lean import LeanExecutor
-    from math_llm.agent import LeanAgent, Evaluator
+    summary = {
+        "dataset": dataset,
+        "agent": agent_type,
+        "model": model_name,
+        "timestamp": datetime.now().isoformat(),
+        "total_problems": n_total,
+        "successful": n_success,
+        "complete": n_complete,
+        "success_rate": n_success / n_total if n_total > 0 else 0,
+        "complete_rate": n_complete / n_total if n_total > 0 else 0,
+        "total_time": total_time,
+        "avg_time_per_problem": avg_time,
+        "results": results,
+    }
 
-    # Load config
-    config = load_config(args.config)
+    # Print summary
+    print(f"\n{'='*60}")
+    print("RESULTS")
+    print(f"{'='*60}")
+    print(f"Total problems: {n_total}")
+    print(f"Successful: {n_success} ({summary['success_rate']*100:.1f}%)")
+    print(f"Complete: {n_complete} ({summary['complete_rate']*100:.1f}%)")
+    print(f"Total time: {total_time:.2f}s")
+    print(f"Avg time/problem: {avg_time:.2f}s")
+    print(f"{'='*60}\n")
 
-    # Load model
-    model_path = args.checkpoint or config.model.name
-    model = load_model(
-        model_name=model_path,
-        device=config.model.device,
-        torch_dtype=config.model.torch_dtype,
-    )
+    # Save results
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    output_file = output_path / f"{dataset}_{agent_type}_results.json"
 
-    # Load dataset
-    if args.debug:
-        dataset = create_dummy_dataset(args.num_samples)
-    else:
-        _, dataset = load_dataset(
-            sources=config.data.sources,
-            cache_dir=config.data.cache_dir,
-            tokenizer=model.get_tokenizer(),
-            train_split=0.0,  # Use all for eval
-        )
+    with open(output_file, "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"Results saved to: {output_file}")
 
-    # Evaluate
-    with LeanExecutor() as executor:
-        agent = LeanAgent(
-            model=model,
-            executor=executor,
-            config=config.agent,
-        )
-        agent.start()
-
-        evaluator = Evaluator(agent)
-        results = evaluator.evaluate(
-            dataset,
-            num_samples=args.num_samples,
-            save_path=args.output,
-        )
-
-    console.print(f"[green]Results saved to {args.output}[/green]")
-
-
-def download_data():
-    """Download datasets."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Download Math-LLM datasets")
-    parser.add_argument(
-        "--sources",
-        "-s",
-        nargs="+",
-        default=["formal-conjectures", "miniF2F"],
-        help="Sources to download",
-    )
-    parser.add_argument("--cache-dir", type=str, default=".cache/datasets")
-
-    args = parser.parse_args()
-
-    from math_llm.data.sources import download_all_sources
-
-    download_all_sources(sources=args.sources, cache_dir=args.cache_dir)
-    console.print("[green]Download complete![/green]")
+    return summary
 
 
 def main():
-    """Main entry point."""
-    if len(sys.argv) < 2:
-        console.print("Usage: math-llm <command> [options]")
-        console.print("Commands: train, evaluate, download")
-        sys.exit(1)
+    """Main CLI entry point."""
+    parser = argparse.ArgumentParser(
+        description="Lean Proof Benchmark CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m math_llm dummy simple           # Test simple agent on dummy data
+  python -m math_llm dummy tool             # Test tool agent on dummy data
+  python -m math_llm minif2f-lean4 simple --samples 10
+  python -m math_llm minif2f-lean4 tool --samples 10
+        """,
+    )
 
-    command = sys.argv[1]
-    sys.argv = [sys.argv[0]] + sys.argv[2:]  # Remove command from args
+    parser.add_argument(
+        "dataset",
+        choices=list_datasets(),
+        help="Dataset to benchmark on",
+    )
+    parser.add_argument(
+        "agent",
+        choices=["simple", "tool"],
+        help="Agent type to use",
+    )
+    parser.add_argument(
+        "--samples", "-n",
+        type=int,
+        default=None,
+        help="Number of samples to run (default: all)",
+    )
+    parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default="Qwen/Qwen2.5-7B-Instruct",
+        help="Model to use (default: Qwen/Qwen2.5-7B-Instruct)",
+    )
+    parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default="outputs",
+        help="Output directory (default: outputs)",
+    )
 
-    if command == "train":
-        train()
-    elif command in ("eval", "evaluate"):
-        evaluate()
-    elif command == "download":
-        download_data()
-    else:
-        console.print(f"[red]Unknown command: {command}[/red]")
-        sys.exit(1)
+    args = parser.parse_args()
+
+    run_benchmark(
+        dataset=args.dataset,
+        agent_type=args.agent,
+        n_samples=args.samples,
+        model_name=args.model,
+        output_dir=args.output,
+    )
 
 
 if __name__ == "__main__":
