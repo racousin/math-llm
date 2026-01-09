@@ -187,6 +187,7 @@ class ToolAgent:
         """Generate next tactic using LLM."""
         self.load_model()
 
+        print("[agent] Generating tactic...", end="", flush=True)
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
@@ -214,7 +215,9 @@ class ToolAgent:
             skip_special_tokens=True,
         )
 
-        return extract_proof(response)
+        tactic = extract_proof(response)
+        print(f" done: {tactic[:50]}..." if len(tactic) > 50 else f" done: {tactic}")
+        return tactic
 
     def solve(self, problem: Problem) -> AgentResult:
         """

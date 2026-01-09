@@ -2,11 +2,9 @@
 
 A simple benchmark for evaluating LLM agents on Lean 4 theorem proving.
 
-| Component | Version |
-|-----------|---------|
-| Lean | 4.25.2 |
 | Mathlib | v4.25.2 |
-| Toolchain | `leanprover/lean4:v4.25.2` |
+| REPL | v4.25.0 |
+| Lean Toolchain | `leanprover/lean4:v4.25.2` |
 
 ## Features
 

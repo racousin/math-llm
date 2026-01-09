@@ -16,9 +16,10 @@ from pathlib import Path
 from typing import Optional
 
 # =============================================================================
-# LEAN/MATHLIB VERSION - Must be kept in sync with scripts/setup_mathlib.sh
+# VERSIONS - Must match scripts/setup_mathlib.sh
 # =============================================================================
 MATHLIB_VERSION = "v4.25.2"
+REPL_VERSION = "v4.25.0"
 LEAN_TOOLCHAIN = "leanprover/lean4:v4.25.2"
 # =============================================================================
 
