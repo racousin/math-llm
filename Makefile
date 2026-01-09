@@ -5,28 +5,25 @@
 #
 # Commands:
 #   make lean-server    - Setup Lean server with Mathlib
-#   make simple         - Run simple agent on dummy data
-#   make tool           - Run tool agent on minif2f-lean4 (10 samples)
+#   make test           - Quick test (both agents on dummy data)
+#   make <dataset>-<agent>  - Run specific benchmark
 
-.PHONY: help install lean-server simple tool clean
+.PHONY: help install lean-server test dummy-simple dummy-tool minif2f-simple minif2f-tool clean
 
 help:
 	@echo "Lean Proof Benchmark"
 	@echo "===================="
 	@echo ""
 	@echo "Setup:"
-	@echo "  make install      - Install Python dependencies"
-	@echo "  make lean-server  - Setup Lean server with Mathlib (~2GB, 10-20min)"
+	@echo "  make install        - Install Python dependencies"
+	@echo "  make lean-server    - Setup Lean server with Mathlib (~2GB, 10-20min)"
 	@echo ""
-	@echo "Benchmarks:"
-	@echo "  make simple       - Run simple agent on dummy data"
-	@echo "  make tool         - Run tool agent on minif2f-lean4 (10 samples)"
-	@echo ""
-	@echo "Custom runs:"
-	@echo "  python -m math_llm dummy simple"
-	@echo "  python -m math_llm dummy tool"
-	@echo "  python -m math_llm minif2f-lean4 simple --samples 10"
-	@echo "  python -m math_llm minif2f-lean4 tool --samples 10"
+	@echo "Benchmarks (naming: <dataset>-<agent>):"
+	@echo "  make test           - Quick test (both agents on dummy)"
+	@echo "  make dummy-simple   - Simple agent on dummy data"
+	@echo "  make dummy-tool     - Tool agent on dummy data"
+	@echo "  make minif2f-simple - Simple agent on minif2f-lean4 (10 samples)"
+	@echo "  make minif2f-tool   - Tool agent on minif2f-lean4 (10 samples)"
 
 # =============================================================================
 # Setup
@@ -43,33 +40,27 @@ lean-server:
 	./scripts/setup_mathlib.sh
 
 # =============================================================================
-# Benchmarks
+# Benchmarks - naming: <dataset>-<agent>
 # =============================================================================
 
-# Run simple agent on dummy data
-simple:
+# Quick test on dummy data
+test:
+	poetry run python -m math_llm dummy simple
+	poetry run python -m math_llm dummy tool
+
+# Dummy dataset
+dummy-simple:
 	poetry run python -m math_llm dummy simple
 
-# Run tool agent on minif2f-lean4 with 10 samples
-tool:
-	poetry run python -m math_llm minif2f-lean4 tool --samples 10
+dummy-tool:
+	poetry run python -m math_llm dummy tool
 
-# =============================================================================
-# Additional commands
-# =============================================================================
-
-# Run simple agent on minif2f-lean4
-simple-minif2f:
+# MiniF2F dataset (10 samples)
+minif2f-simple:
 	poetry run python -m math_llm minif2f-lean4 simple --samples 10
 
-# Run tool agent on dummy data
-tool-dummy:
-	poetry run python -m math_llm dummy tool
-
-# Run all dummy data benchmarks
-test-dummy:
-	poetry run python -m math_llm dummy simple
-	poetry run python -m math_llm dummy tool
+minif2f-tool:
+	poetry run python -m math_llm minif2f-lean4 tool --samples 10
 
 # =============================================================================
 # Cleanup
