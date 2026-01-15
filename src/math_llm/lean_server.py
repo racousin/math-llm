@@ -116,7 +116,7 @@ require mathlib from git
   "https://github.com/leanprover-community/mathlib4" @ "{MATHLIB_VERSION}"
 
 require «repl» from git
-  "https://github.com/leanprover-community/repl" @ "master"
+  "https://github.com/leanprover-community/repl" @ "{REPL_VERSION}"
 
 @[default_target]
 lean_lib «LeanBench»
