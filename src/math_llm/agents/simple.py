@@ -106,11 +106,13 @@ class SimpleAgent:
         lean_server: Optional[LeanServer] = None,
         max_new_tokens: int = 256,
         temperature: float = 0.1,
+        gpu: Optional[int] = None,
     ):
         self.model_name = model_name
         self.lean_server = lean_server
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
+        self.gpu = gpu
         self._model = None
         self._tokenizer = None
 
@@ -131,7 +133,11 @@ class SimpleAgent:
             )
 
             # Determine device and dtype
-            if torch.cuda.is_available():
+            if self.gpu is not None:
+                # Force specific GPU
+                device_map = {"": self.gpu}
+                torch_dtype = torch.bfloat16
+            elif torch.cuda.is_available():
                 device_map = "auto"
                 torch_dtype = torch.bfloat16
             elif torch.backends.mps.is_available():
@@ -208,6 +214,7 @@ class SimpleAgent:
         try:
             proof = self.generate_proof(problem)
         except Exception as e:
+            print(f"  [agent] Error: {e}")
             return AgentResult(
                 problem_id=problem.id,
                 success=False,

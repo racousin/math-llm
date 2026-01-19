@@ -104,12 +104,14 @@ class ToolAgent:
         max_steps: int = 10,
         max_new_tokens: int = 128,
         temperature: float = 0.3,
+        gpu: Optional[int] = None,
     ):
         self.model_name = model_name
         self.lean_server = lean_server
         self.max_steps = max_steps
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
+        self.gpu = gpu
         self._model = None
         self._tokenizer = None
 
@@ -129,7 +131,11 @@ class ToolAgent:
                 trust_remote_code=True,
             )
 
-            if torch.cuda.is_available():
+            if self.gpu is not None:
+                # Force specific GPU
+                device_map = {"": self.gpu}
+                torch_dtype = torch.bfloat16
+            elif torch.cuda.is_available():
                 device_map = "auto"
                 torch_dtype = torch.bfloat16
             elif torch.backends.mps.is_available():

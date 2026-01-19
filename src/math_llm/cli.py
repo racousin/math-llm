@@ -29,6 +29,7 @@ def run_benchmark(
     n_samples: Optional[int] = None,
     model_name: str = "Qwen/Qwen2.5-7B-Instruct",
     output_dir: str = "outputs",
+    gpu: Optional[int] = None,
 ) -> dict:
     """
     Run benchmark on a dataset with specified agent.
@@ -39,6 +40,7 @@ def run_benchmark(
         n_samples: Number of samples (None = all)
         model_name: Model to use
         output_dir: Directory for output files
+        gpu: Force specific GPU device (None = auto)
 
     Returns:
         Benchmark results dictionary
@@ -66,11 +68,13 @@ def run_benchmark(
         agent = SimpleAgent(
             model_name=model_name,
             lean_server=lean_server,
+            gpu=gpu,
         )
     elif agent_type == "tool":
         agent = ToolAgent(
             model_name=model_name,
             lean_server=lean_server,
+            gpu=gpu,
         )
     else:
         raise ValueError(f"Unknown agent type: {agent_type}. Use 'simple' or 'tool'")
@@ -207,6 +211,12 @@ Examples:
         default="outputs",
         help="Output directory (default: outputs)",
     )
+    parser.add_argument(
+        "--gpu", "-g",
+        type=int,
+        default=None,
+        help="Force specific GPU device (default: auto)",
+    )
 
     args = parser.parse_args()
 
@@ -216,6 +226,7 @@ Examples:
         n_samples=args.samples,
         model_name=args.model,
         output_dir=args.output,
+        gpu=args.gpu,
     )
 
 
