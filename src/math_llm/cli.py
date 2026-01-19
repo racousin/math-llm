@@ -154,7 +154,9 @@ def run_benchmark(
     # Save results
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    output_file = output_path / f"{dataset}_{agent_type}_results.json"
+    # Sanitize model name for filename (replace / with -)
+    model_slug = model_name.replace("/", "-")
+    output_file = output_path / f"{dataset}_{agent_type}_{model_slug}_results.json"
 
     with open(output_file, "w") as f:
         json.dump(summary, f, indent=2)
